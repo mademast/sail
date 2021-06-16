@@ -1,0 +1,17 @@
+S: 220 foo.com Simple Mail Transfer Service Ready
+C: EHLO bar.com
+S: 250-foo.com greets bar.com
+S: 250-8BITMIME
+S: 250-SIZE
+S: 250-DSN
+S: 250 HELP
+C: MAIL FROM:<Smith@bar.com>
+S: 250 OK
+C: RCPT TO:<Jones@foo.com>
+S: 250 OK
+C: RCPT TO:<Green@foo.com>
+S: 550 No such user here
+C: RSET
+S: 250 OK
+C: QUIT
+S: 221 foo.com Service closing transmission channel
