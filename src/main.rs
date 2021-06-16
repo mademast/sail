@@ -20,6 +20,7 @@ impl Connection {
 	}
 
 	pub async fn serve(&mut self) -> io::Result<()> {
+		//TODO: send 220 initiator
 		println!("serving!");
 		let mut buf = vec![0; 1024];
 
