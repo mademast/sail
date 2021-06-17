@@ -1,6 +1,6 @@
 # sail
 A portmanteau of **s**tandard m**ail**, sail is an SMTP server implementation
-that tries to stay strictly standard complient, much to its detriment.
+that tries to stay strictly standard compliant, much to its detriment.
 
 ## Standards
 - [RFC 5321][bible]: for the SMTP protocol itself

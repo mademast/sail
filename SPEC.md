@@ -24,7 +24,7 @@ forward and reverse paths, and the mail data. This can be seen in [4.1.1][smtp41
 
 ### Line endings
 
-Lines must end CR LF per [2.3.8][smtp238].
+Lines must end with CRLF per [2.3.8][smtp238].
 
 <details>
 	<summary>RFC Text</summary>
@@ -72,7 +72,7 @@ ehlo = "EHLO" SP ( Domain / address-literal ) CRLF
 ```
 
 ##### Expected return on success
-`250 Domain` if there are no service extensions. If there are
+`250 Domain` if there are no service extensions, in violation of spec. If there are
 service extensions, `250-Domain` and then `250-KEYWORD` for each extension,
 indicating the last one by removing the hyphen: `250 KEYWORD`. 
 
@@ -152,7 +152,7 @@ data = "DATA" CRLF
 ```
 
 ##### Expected return on success
-Servers should send a `354` which mean "start mail input".
+Servers should send a `354` which means "start mail input".
 
 #### [RSET][smtp4115]
 Used to reset the SMTP servers state and buffers as if it just received
