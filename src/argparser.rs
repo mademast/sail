@@ -19,16 +19,10 @@ impl ArgParser {
 		let splits = mailbox.rsplit_once("@");
 
 		if let Some((localpart, domain)) = splits {
-			if GrammarParser::parse(Rule::validate_local_part, localpart).is_err() {
-				false
-			} else if std::net::IpAddr::from_str(domain).is_err()
-				&& GrammarParser::parse(Rule::validate_domain, domain).is_err()
-			{
-				// Check if it's an address literal first, and if it isn't, check if it's a domain
-				false
-			} else {
-				true
-			}
+			// Check if it's an address literal first, and if it isn't, check if it's a domain
+			!(GrammarParser::parse(Rule::validate_local_part, localpart).is_err()
+				|| std::net::IpAddr::from_str(domain).is_err()
+					&& GrammarParser::parse(Rule::validate_domain, domain).is_err())
 		} else {
 			false
 		}
@@ -37,22 +31,16 @@ impl ArgParser {
 	pub fn validate_path(path: &str) -> bool {
 		if let Some(path) = path.strip_prefix("<") {
 			if let Some(stripped) = path.strip_suffix(">") {
-				if !stripped.starts_with("@") {
+				if !stripped.starts_with('@') {
 					// ADLs have to start with @
 					return Self::validate_mailbox(stripped);
 				}
 
-				let splits: Vec<&str> = stripped.splitn(2, ":").collect();
+				let splits: Vec<&str> = stripped.splitn(2, ':').collect();
 
-				if splits.len() < 2 {
-					false
-				} else if GrammarParser::parse(Rule::validate_adl, splits[0]).is_err() {
-					false
-				} else if !Self::validate_mailbox(splits[1]) {
-					false
-				} else {
-					true
-				}
+				!(splits.len() < 2
+					|| GrammarParser::parse(Rule::validate_adl, splits[0]).is_err()
+					|| !Self::validate_mailbox(splits[1]))
 			} else {
 				false
 			}
@@ -115,7 +103,7 @@ mod test {
 
 		// These should all pass on their own
 		for name in should_pass.iter() {
-			if ArgParser::validate_domain(name) == false {
+			if !ArgParser::validate_domain(name) {
 				panic!("ArgParser::validate_domain() failed on {}", name)
 			}
 		}
@@ -124,7 +112,7 @@ mod test {
 		for name in should_pass.iter() {
 			for name2 in should_pass.iter() {
 				let catname = format!("{}.{}", name, name2);
-				if ArgParser::validate_domain(&catname) == false {
+				if !ArgParser::validate_domain(&catname) {
 					panic!("ArgParser::validate_domain() failed on {}", catname)
 				}
 			}
@@ -133,22 +121,22 @@ mod test {
 		// should not allow: leading/trailing period/hyphen
 		for name in should_pass.iter() {
 			let fmtname = format!(".{}", name);
-			if ArgParser::validate_domain(&fmtname) == true {
+			if ArgParser::validate_domain(&fmtname) {
 				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
 			}
 
 			let fmtname = format!("{}.", name);
-			if ArgParser::validate_domain(&fmtname) == true {
+			if ArgParser::validate_domain(&fmtname) {
 				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
 			}
 
 			let fmtname = format!("-{}", name);
-			if ArgParser::validate_domain(&fmtname) == true {
+			if ArgParser::validate_domain(&fmtname) {
 				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
 			}
 
 			let fmtname = format!("{}-", name);
-			if ArgParser::validate_domain(&fmtname) == true {
+			if ArgParser::validate_domain(&fmtname) {
 				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
 			}
 		}
@@ -162,7 +150,7 @@ mod test {
 		for domain in domains.iter() {
 			for local in locals.iter() {
 				let fmtname = format!("{}@{}", local, domain);
-				if ArgParser::validate_mailbox(&fmtname) == false {
+				if !ArgParser::validate_mailbox(&fmtname) {
 					panic!("ArgParser::validate_mailbox() failed on {}", fmtname)
 				}
 			}
