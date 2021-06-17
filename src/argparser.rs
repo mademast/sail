@@ -99,13 +99,7 @@ mod test {
 
 	#[test]
 	fn domain() {
-		let should_pass = [
-			"domain",
-			"0domain",
-			"domain0",
-			"0-domain",
-			"domain-0",
-		];
+		let should_pass = ["domain", "0domain", "domain0", "0-domain", "domain-0"];
 
 		// These should all pass on their own
 		for name in should_pass {
