@@ -1,4 +1,4 @@
-mod devon_lib;
+mod command;
 
 use std::fmt::format;
 
@@ -36,21 +36,19 @@ impl Protocol {
 
 	//TODO: Maybe have a self.parse_command because there is a lot of grammar for it all.
 	fn run_command(&mut self) -> Option<String> {
-		let (cmd, args) = Self::parse(self.command_buffer.trim_end())?.to_owned();
+		let cmd_str = self.command_buffer.trim_end().to_owned();
+		let mut split = cmd_str.splitn(2, ' ');
+		let cmd = split
+			.next()
+			.expect("How did this happen? First split was None.");
+		let args = split.next();
 
 		match self.state {
-			State::WaitingHelo => Self::waitinghelo(cmd, args),
+			State::WaitingHelo => self.waitinghelo(cmd, args),
 		}
 	}
 
-	fn parse(cmd_str: &str) -> Option<(&str, Option<&str>)> {
-		let mut split = cmd_str.splitn(2, ' ');
-		let cmd = split.next()?;
-		let args = split.next();
-		Some((cmd, args))
-	}
-
-	fn waitinghelo(cmd: &str, args: Option<&str>) -> Option<String> {
+	fn waitinghelo(&mut self, cmd: &str, args: Option<&str>) -> Option<String> {
 		println!("'{}' '{:?}'", cmd, args);
 		if cmd != "HELO" {
 			//TODO: Check command is valid and return 503 if it was bad sequence
@@ -65,7 +63,6 @@ impl Protocol {
 	}
 }
 
-#[derive(Clone, Copy)]
 pub enum State {
 	WaitingHelo,
 }
