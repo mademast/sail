@@ -165,7 +165,7 @@ impl Transaction {
 	}
 
 	fn parse_command(command: &str) -> Command {
-		if command.len() < 4 {
+		if command.len() < 4 || !command.is_ascii() {
 			return Command::Invalid;
 		}
 		match command.split_at(4) {
