@@ -20,9 +20,9 @@ impl ArgParser {
 
 		if let Some((localpart, domain)) = splits {
 			// Check if it's an address literal first, and if it isn't, check if it's a domain
-			!(GrammarParser::parse(Rule::validate_local_part, localpart).is_err()
-				|| std::net::IpAddr::from_str(domain).is_err()
-					&& GrammarParser::parse(Rule::validate_domain, domain).is_err())
+			GrammarParser::parse(Rule::validate_local_part, localpart).is_ok()
+				&& (std::net::IpAddr::from_str(domain).is_ok()
+					|| GrammarParser::parse(Rule::validate_domain, domain).is_ok())
 		} else {
 			false
 		}
@@ -38,9 +38,9 @@ impl ArgParser {
 
 				let splits: Vec<&str> = stripped.splitn(2, ':').collect();
 
-				!(splits.len() < 2
-					|| GrammarParser::parse(Rule::validate_adl, splits[0]).is_err()
-					|| !Self::validate_mailbox(splits[1]))
+				splits.len() > 2
+					&& GrammarParser::parse(Rule::validate_adl, splits[0]).is_ok()
+					&& Self::validate_mailbox(splits[1])
 			} else {
 				false
 			}
