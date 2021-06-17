@@ -1,4 +1,7 @@
-use std::str::FromStr;
+use std::{
+	net::{Ipv4Addr, Ipv6Addr},
+	str::FromStr,
+};
 
 use pest::Parser;
 use pest_derive::*;
@@ -13,6 +16,24 @@ impl ArgParser {
 		GrammarParser::parse(Rule::validate_domain, domain).is_ok()
 	}
 
+	pub fn validate_address_literal(literal: &str) -> bool {
+		// literals must be cotnaiend within square brackets
+		if let Some(literal) = literal.strip_prefix("[") {
+			if let Some(stripped) = literal.strip_suffix("]") {
+				if let Some(ipv6_literal) = stripped.strip_prefix("IPv6:") {
+					// Only parse ipv6 if it claims to be one
+					Ipv6Addr::from_str(ipv6_literal).is_ok()
+				} else {
+					Ipv4Addr::from_str(stripped).is_ok()
+				}
+			} else {
+				false
+			}
+		} else {
+			false
+		}
+	}
+
 	//TODO: Accept address literals as they appear for RFC5321. We need to
 	//handle general literals as well as IPV6 having "IPv6:" before it
 	pub fn validate_mailbox(mailbox: &str) -> bool {
@@ -21,7 +42,7 @@ impl ArgParser {
 		if let Some((localpart, domain)) = splits {
 			// Check if it's an address literal first, and if it isn't, check if it's a domain
 			GrammarParser::parse(Rule::validate_local_part, localpart).is_ok()
-				&& (std::net::IpAddr::from_str(domain).is_ok()
+				&& (Self::validate_address_literal(domain)
 					|| GrammarParser::parse(Rule::validate_domain, domain).is_ok())
 		} else {
 			false
@@ -172,6 +193,8 @@ mod test {
 
 		//TODO: Write failing tests
 	}
+
+	//TODO: Write tests for ArgParser::validate_address_literal
 
 	//TODO: Write tests for ArgParser::validate_path
 }
