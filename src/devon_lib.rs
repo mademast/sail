@@ -2,9 +2,9 @@
 
 pub struct Transaction {
 	state: State,
-    reverse_path: Option<String>,
-    forward_path: Option<String>,
-    data: Option<String>,
+	reverse_path: Option<String>,
+	forward_path: Option<String>,
+	data: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -13,98 +13,108 @@ impl Transaction {
 		(
 			Self {
 				state: State::Initiated,
-                reverse_path: None,
-                forward_path: None,
-                data: None
+				reverse_path: None,
+				forward_path: None,
+				data: None,
 			},
 			String::from("220 Sail Ready"),
 		)
 	}
-    pub fn run_command(&mut self, command: &str) -> String {
-        let command = Self::parse_command(command);
-        match command {
-            Command::Helo(client_domain) => self.helo(&client_domain),
-            Command::Ehlo(client_domain) => self.ehlo(&client_domain),
-            Command::Mail(_) => todo!(),
-            Command::Rcpt(_) => todo!(),
-            Command::Data => todo!(),
-            Command::Rset => todo!(),
-            Command::Vrfy(_) => todo!(),
-            Command::Expn(_) => Self::not_implemented(),
-            Command::Help(_) => String::from("Please review RFC 5321"),
-            Command::Noop => String::from("250 OK"),
-            Command::Quit => String::from("221 Goodbye"),
-            Command::Invalid => Self::syntax_error(),
-        }
-    }
+	pub fn run_command(&mut self, command: &str) -> String {
+		let command = Self::parse_command(command);
+		match command {
+			Command::Helo(client_domain) => self.helo(&client_domain),
+			Command::Ehlo(client_domain) => self.ehlo(&client_domain),
+			Command::Mail(_) => todo!(),
+			Command::Rcpt(_) => todo!(),
+			Command::Data => self.data(),
+			Command::Rset => todo!(),
+			Command::Vrfy(_) => todo!(),
+			Command::Expn(_) => Self::not_implemented(),
+			Command::Help(_) => String::from("214 Please review RFC 5321"),
+			Command::Noop => String::from("250 OK"),
+			Command::Quit => String::from("221 Goodbye"),
+			Command::Invalid => Self::syntax_error(),
+		}
+	}
 
-    fn helo(&mut self, client_domain: &str) -> String {
-        match self.state {
-            State::Initiated => {
-                if Self::validate_domain(client_domain) {
-                    self.state = State::Greeted;
-                    format!("250 {}", client_domain)
-                } else {
-                    String::from("501 Bad Domain")
-                }
-            },
-            _ => Self::bad_command()
-        }
-    }
-    fn ehlo(&mut self, client_domain: &str) -> String {
-        match self.state {
-            State::Initiated => {
-                if Self::validate_domain(client_domain) {
-                    self.state = State::Greeted;
-                    format!("250-{}\r\n250 Help", client_domain)
-                } else {
-                    String::from("501 Bad Domain")
-                }
-            },
-            _ => Self::bad_command()
-        }
-    }
-    fn validate_domain(domain: &str) -> bool {
-        todo!()
-    }
+	fn helo(&mut self, client_domain: &str) -> String {
+		match self.state {
+			State::Initiated => {
+				if Self::validate_domain(client_domain) {
+					self.state = State::Greeted;
+					"250 Sail".to_string()
+				} else {
+					String::from("501 Bad Domain")
+				}
+			}
+			_ => Self::bad_command(),
+		}
+	}
+	fn ehlo(&mut self, client_domain: &str) -> String {
+		match self.state {
+			State::Initiated => {
+				if Self::validate_domain(client_domain) {
+					self.state = State::Greeted;
+					"250-Sail\r\n250 Help".to_string()
+				} else {
+					String::from("501 Bad Domain")
+				}
+			}
+			_ => Self::bad_command(),
+		}
+	}
+	fn validate_domain(domain: &str) -> bool {
+		todo!()
+	}
 
-    fn not_implemented() -> String {
-        String::from("502 Command Not Implemented")
-    }
-    fn parse_command(command: &str) -> Command {
-        if command.len() < 4 {
-            return Command::Invalid;
-        }
-        match command.split_at(4) {
-            ("HELO", client_domain) => Command::Helo(client_domain.trim().to_owned()),
-            ("EHLO", client_domain) => Command::Ehlo(client_domain.trim().to_owned()),
-            ("MAIL", reverse_path) => Command::Mail(reverse_path.trim().to_owned()),
-            ("RCPT", forward_path) => Command::Rcpt(forward_path.trim().to_owned()),
-            ("DATA", _) => Command::Data,
-            ("RSET", _) => Command::Rset,
-            ("VRFY", target) => Command::Vrfy(target.trim().to_owned()),
-            ("EXPN", list) => Command::Expn(list.trim().to_owned()),
-            ("HELP", command) => Command::Help(command.trim().to_owned()),
-            ("NOOP", _) => Command::Noop,
-            ("QUIT", _) => Command::Quit,
-            _ => Command::Invalid,
-        }
-    }
-    fn bad_command() -> String {
-        String::from("503 bad sequence of commands")
-    }
-    fn syntax_error() -> String {
-        String::from("500 Syntax Error")
-    }
+	fn data(&mut self) -> String {
+		if self.state == State::GotForwardPath {
+			self.state = State::LoadingData;
+			"354 Start mail input; end with <CRLF>.<CRLF>".to_string()
+		} else {
+			Self::bad_command()
+		}
+	}
+
+	fn not_implemented() -> String {
+		String::from("502 Command Not Implemented")
+	}
+	fn parse_command(command: &str) -> Command {
+		if command.len() < 4 {
+			return Command::Invalid;
+		}
+		match command.split_at(4) {
+			("HELO", client_domain) => Command::Helo(client_domain.trim().to_owned()),
+			("EHLO", client_domain) => Command::Ehlo(client_domain.trim().to_owned()),
+			("MAIL", reverse_path) => Command::Mail(reverse_path.trim().to_owned()),
+			("RCPT", forward_path) => Command::Rcpt(forward_path.trim().to_owned()),
+			("DATA", _) => Command::Data,
+			("RSET", _) => Command::Rset,
+			("VRFY", target) => Command::Vrfy(target.trim().to_owned()),
+			("EXPN", list) => Command::Expn(list.trim().to_owned()),
+			("HELP", command) => Command::Help(command.trim().to_owned()),
+			("NOOP", _) => Command::Noop,
+			("QUIT", _) => Command::Quit,
+			_ => Command::Invalid,
+		}
+	}
+	fn bad_command() -> String {
+		String::from("503 bad sequence of commands")
+	}
+	fn syntax_error() -> String {
+		String::from("500 Syntax Error")
+	}
 }
 
+#[derive(PartialEq)]
 enum State {
 	Initiated,
-    Greeted,
-    GotReversePath,
-    GotForwardPath,
-    LoadingData,
-    GotData,
+	Greeted,
+	GotReversePath,
+	GotForwardPath,
+	LoadingData,
+	GotData,
 }
 enum Command {
 	Helo(String),
@@ -118,5 +128,5 @@ enum Command {
 	Help(String),
 	Noop,
 	Quit,
-    Invalid
+	Invalid,
 }
