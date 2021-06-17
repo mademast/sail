@@ -17,6 +17,13 @@ pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
 	while !transaction.should_exit() {
 		let read = stream.read(&mut buf).await?;
 
+		// A zero sized read, this connection has died or been terminated by the client
+		if read == 0 {
+			println!("Connection unexpectedly closed by client");
+
+			return Ok(());
+		}
+
 		for byte in buf.iter().take(read) {
 			print!("{:02X} ", byte);
 		}
