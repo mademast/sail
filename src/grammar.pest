@@ -1,0 +1,17 @@
+alpha = { 'a'..'z' | 'A'..'Z' }
+digit = { '0'..'9' }
+
+let_dig = { alpha | digit }
+let_dighpyh = { alpha | digit | "-" }
+ldh_str = {
+	(
+		&let_dighpyh{2} ~ // Be sure there are at least two more characters. One for us and one for let_dig
+		let_dighpyh
+	)* ~
+	let_dig
+}
+
+subdomain = { let_dig ~ ldh_str? }
+domain = @{
+	SOI ~ subdomain ~ ("." ~ subdomain)* ~ EOI
+}

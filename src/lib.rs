@@ -1,3 +1,5 @@
+mod command;
+
 use std::fmt::format;
 
 #[derive(Default)]
