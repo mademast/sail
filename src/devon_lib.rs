@@ -68,7 +68,7 @@ impl Transaction {
 		todo!()
 	}
 	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
-    fn validate_reverse_path(reverse_path: &str) -> bool {
+	fn validate_reverse_path(reverse_path: &str) -> bool {
 		todo!() //this can also have mail parameters, apparently
 	}
 	fn validate_forward_path(forward_path: &str) -> bool {
@@ -107,19 +107,19 @@ impl Transaction {
 			Self::bad_command()
 		}
 	}
-    fn rset(&mut self) -> String {
-        self.state = State::Initiated;
-        self.data = None;
-        self.reverse_path = None;
-        self.forward_path = None;
-        String::from("250 OK")
-    }
+	fn rset(&mut self) -> String {
+		self.state = State::Initiated;
+		self.data = None;
+		self.reverse_path = None;
+		self.forward_path = None;
+		String::from("250 OK")
+	}
 	fn quit(&mut self) -> String {
-        self.state = State::Exit;
-        String::from("221 Sail Goodbye")
-    }
-    
-    fn not_implemented() -> String {
+		self.state = State::Exit;
+		String::from("221 Sail Goodbye")
+	}
+
+	fn not_implemented() -> String {
 		String::from("502 Command Not Implemented")
 	}
 	fn parse_command(command: &str) -> Command {
@@ -157,7 +157,7 @@ enum State {
 	GotForwardPath,
 	LoadingData,
 	GotData,
-    Exit,
+	Exit,
 }
 enum Command {
 	Helo(String),
