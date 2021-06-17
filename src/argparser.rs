@@ -100,7 +100,7 @@ mod test {
 	#[test]
 	fn domain() {
 		let should_pass = [
-			"domaasdas(()89090(7689%&$*&(6-9670*&^)*&^in",
+			"domain",
 			"0domain",
 			"domain0",
 			"0-domain",
