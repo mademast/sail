@@ -33,7 +33,7 @@ impl Transaction {
 			Command::Expn(_) => Self::not_implemented(),
 			Command::Help(_) => String::from("214 Please review RFC 5321"),
 			Command::Noop => String::from("250 OK"),
-			Command::Quit => String::from("221 Sail Goodbye"),
+			Command::Quit => self.quit(),
 			Command::Invalid => Self::syntax_error(),
 		}
 	}
@@ -114,7 +114,12 @@ impl Transaction {
         self.forward_path = None;
         String::from("250 OK")
     }
-	fn not_implemented() -> String {
+	fn quit(&mut self) -> String {
+        self.state = State::Exit;
+        String::from("221 Sail Goodbye")
+    }
+    
+    fn not_implemented() -> String {
 		String::from("502 Command Not Implemented")
 	}
 	fn parse_command(command: &str) -> Command {
@@ -152,6 +157,7 @@ enum State {
 	GotForwardPath,
 	LoadingData,
 	GotData,
+    Exit,
 }
 enum Command {
 	Helo(String),
