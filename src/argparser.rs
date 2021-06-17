@@ -99,46 +99,64 @@ mod test {
 
 	#[test]
 	fn domain() {
-		let should_pass = ["domain", "0domain", "domain0", "0-domain", "domain-0"];
+		let should_pass = [
+			"domaasdas(()89090(7689%&$*&(6-9670*&^)*&^in",
+			"0domain",
+			"domain0",
+			"0-domain",
+			"domain-0",
+		];
 
 		// These should all pass on their own
 		for name in should_pass.iter() {
-			if !ArgParser::validate_domain(name) {
-				panic!("ArgParser::validate_domain() failed on {}", name)
-			}
+			assert!(
+				ArgParser::validate_domain(name),
+				"ArgParser::validate_domain() failed on {}",
+				name
+			)
 		}
 
 		// ... as well as when joined with a dot
 		for name in should_pass.iter() {
 			for name2 in should_pass.iter() {
 				let catname = format!("{}.{}", name, name2);
-				if !ArgParser::validate_domain(&catname) {
-					panic!("ArgParser::validate_domain() failed on {}", catname)
-				}
+				assert!(
+					ArgParser::validate_domain(&catname),
+					"ArgParser::validate_domain() failed on {}",
+					catname
+				)
 			}
 		}
 
 		// should not allow: leading/trailing period/hyphen
 		for name in should_pass.iter() {
 			let fmtname = format!(".{}", name);
-			if ArgParser::validate_domain(&fmtname) {
-				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
-			}
+			assert!(
+				!ArgParser::validate_domain(&fmtname),
+				"ArgParser::validate_domain() succeeded on {}",
+				fmtname
+			);
 
 			let fmtname = format!("{}.", name);
-			if ArgParser::validate_domain(&fmtname) {
-				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
-			}
+			assert!(
+				!ArgParser::validate_domain(&fmtname),
+				"ArgParser::validate_domain() succeeded on {}",
+				fmtname
+			);
 
 			let fmtname = format!("-{}", name);
-			if ArgParser::validate_domain(&fmtname) {
-				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
-			}
+			assert!(
+				!ArgParser::validate_domain(&fmtname),
+				"ArgParser::validate_domain() succeeded on {}",
+				fmtname
+			);
 
 			let fmtname = format!("{}-", name);
-			if ArgParser::validate_domain(&fmtname) {
-				panic!("ArgParser::validate_domain() succeeded on {}", fmtname)
-			}
+			assert!(
+				!ArgParser::validate_domain(&fmtname),
+				"ArgParser::validate_domain() succeeded on {}",
+				fmtname
+			);
 		}
 	}
 
@@ -150,9 +168,11 @@ mod test {
 		for domain in domains.iter() {
 			for local in locals.iter() {
 				let fmtname = format!("{}@{}", local, domain);
-				if !ArgParser::validate_mailbox(&fmtname) {
-					panic!("ArgParser::validate_mailbox() failed on {}", fmtname)
-				}
+				assert!(
+					ArgParser::validate_mailbox(&fmtname),
+					"ArgParser::validate_mailbox() failed on {}",
+					fmtname
+				)
 			}
 		}
 
