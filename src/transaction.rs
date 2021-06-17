@@ -57,6 +57,7 @@ impl Transaction {
 	}
 
 	fn helo(&mut self, client_domain: &str) -> Response {
+		// 4.1.4 does not say the same thing about HELO, so we check the state
 		match self.state {
 			State::Initiated => {
 				if ArgParser::validate_domain(client_domain) {
@@ -75,18 +76,19 @@ impl Transaction {
 	}
 
 	fn ehlo(&mut self, client_domain: &str) -> Response {
-		match self.state {
-			State::Initiated => {
-				//TODO: Check for address literals, too
-				if ArgParser::validate_domain(client_domain) {
-					self.state = State::Greeted;
+		//TODO: Check for address literals, too
+		if ArgParser::validate_domain(client_domain) {
+			// Section 4.1.4 says that EHLO may appear later in the session, and
+			// that the state should be reset and the buffers cleared (like RSET)
+			// So here we just call rset and set the state later.
+			// We must, however, check to be sure it's valid first. To reset on
+			// an invalid EHLO is to break the spec.
+			self.rset();
+			self.state = State::Greeted;
 
-					Response::with_message(ResponseCode::Okay, "Okay").push("Help")
-				} else {
-					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
-				}
-			}
-			_ => self.rset(),
+			Response::with_message(ResponseCode::Okay, "Okay").push("Help")
+		} else {
+			Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
 		}
 	}
 
