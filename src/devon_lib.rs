@@ -1,3 +1,5 @@
+#[allow(dead_code)]
+
 pub struct Transaction {
 	state: State,
     reverse_path: Option<String>,
@@ -5,6 +7,7 @@ pub struct Transaction {
     data: Option<String>,
 }
 
+#[allow(dead_code)]
 impl Transaction {
 	pub fn initiate() -> (Self, String) {
 		(
@@ -17,6 +20,57 @@ impl Transaction {
 			String::from("220 Sail Ready"),
 		)
 	}
+    pub fn run_command(&mut self, command: &str) -> String {
+        let command = Self::parse_command(command);
+        match command {
+            Command::Helo(client_domain) => self.helo(&client_domain),
+            Command::Ehlo(client_domain) => self.ehlo(&client_domain),
+            Command::Mail(_) => todo!(),
+            Command::Rcpt(_) => todo!(),
+            Command::Data => todo!(),
+            Command::Rset => todo!(),
+            Command::Vrfy(_) => todo!(),
+            Command::Expn(_) => Self::not_implemented(),
+            Command::Help(_) => String::from("Please review RFC 5321"),
+            Command::Noop => String::from("250 OK"),
+            Command::Quit => String::from("221 Goodbye"),
+            Command::Invalid => Self::syntax_error(),
+        }
+    }
+
+    fn helo(&mut self, client_domain: &str) -> String {
+        match self.state {
+            State::Initiated => {
+                if Self::validate_domain(client_domain) {
+                    self.state = State::Greeted;
+                    format!("250 {}", client_domain)
+                } else {
+                    String::from("501 Bad Domain")
+                }
+            },
+            _ => Self::bad_command()
+        }
+    }
+    fn ehlo(&mut self, client_domain: &str) -> String {
+        match self.state {
+            State::Initiated => {
+                if Self::validate_domain(client_domain) {
+                    self.state = State::Greeted;
+                    format!("250-{}\r\n250 Help", client_domain)
+                } else {
+                    String::from("501 Bad Domain")
+                }
+            },
+            _ => Self::bad_command()
+        }
+    }
+    fn validate_domain(domain: &str) -> bool {
+        todo!()
+    }
+
+    fn not_implemented() -> String {
+        String::from("502 Command Not Implemented")
+    }
     fn parse_command(command: &str) -> Command {
         if command.len() < 4 {
             return Command::Invalid;
@@ -38,6 +92,9 @@ impl Transaction {
     }
     fn bad_command() -> String {
         String::from("503 bad sequence of commands")
+    }
+    fn syntax_error() -> String {
+        String::from("500 Syntax Error")
     }
 }
 
