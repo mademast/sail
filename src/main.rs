@@ -1,47 +1,33 @@
 use std::net::{TcpListener, TcpStream};
 
-use sail::Protocol;
+use sail::Transaction;
 use smol::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
 	Async,
 };
 
-pub struct Connection {
-	stream: Async<TcpStream>,
-	protocol: Protocol,
-}
+pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
+	let (mut transaction, inital_message) = Transaction::initiate();
+	stream.write_all(inital_message.as_bytes()).await?;
 
-impl Connection {
-	pub fn new(stream: Async<TcpStream>) -> Self {
-		Self {
-			stream,
-			protocol: Protocol::new(),
+	let mut buf = vec![0; 1024];
+
+	while !transaction.should_exit() {
+		let read = stream.read(&mut buf).await?;
+
+		for i in 0..read {
+			print!("{:02X} ", buf[i]);
+		}
+		println!("\n{}", String::from_utf8_lossy(&buf[..read]));
+
+		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref());
+
+		if let Some(respond) = response {
+			stream.write_all(respond.as_bytes()).await?;
 		}
 	}
 
-	pub async fn serve(&mut self) -> io::Result<()> {
-		println!("serving!");
-		let mut buf = vec![0; 1024];
-
-		loop {
-			let read = self.stream.read(&mut buf).await?;
-
-			for i in 0..read {
-				print!("{:02X} ", buf[i]);
-			}
-			println!("\n{}", String::from_utf8_lossy(&buf[..read]));
-
-			let response = self
-				.protocol
-				.push(String::from_utf8_lossy(&buf[..read]).as_ref());
-
-			if let Some(respond) = response {
-				self.stream.write_all(respond.as_bytes()).await?;
-			}
-		}
-
-		Ok(())
-	}
+	Ok(())
 }
 
 fn main() {
@@ -53,11 +39,7 @@ fn main() {
 
 			println!("connection from {}", clientaddr);
 
-			smol::spawn(async move {
-				let mut con = Connection::new(stream);
-				con.serve().await
-			})
-			.detach();
+			smol::spawn(async move { serve(stream).await.unwrap() }).detach();
 		}
 	});
 }

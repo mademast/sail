@@ -1,7 +1,9 @@
 #[allow(dead_code)]
+use crate::ArgParser;
 
 pub struct Transaction {
 	state: State,
+	command: String,
 	reverse_path: Option<String>,
 	forward_path: Option<String>,
 	data: Option<String>,
@@ -13,15 +15,31 @@ impl Transaction {
 		(
 			Self {
 				state: State::Initiated,
+				command: String::new(),
 				reverse_path: None,
 				forward_path: None,
 				data: None,
 			},
-			String::from("220 Sail Ready"),
+			String::from("220 Sail Ready\r\n"),
 		)
 	}
-	pub fn run_command(&mut self, command: &str) -> String {
-		let command = Self::parse_command(command);
+
+	pub fn push(&mut self, line: &str) -> Option<String> {
+		self.command.push_str(line);
+
+		if self.command.ends_with("\r\n") {
+			Some(self.run_command())
+		} else {
+			None
+		}
+	}
+
+	pub fn should_exit(&self) -> bool {
+		self.state == State::Exit
+	}
+
+	fn run_command(&mut self) -> String {
+		let command = Self::parse_command(&self.command);
 		match command {
 			Command::Helo(client_domain) => self.helo(&client_domain),
 			Command::Ehlo(client_domain) => self.ehlo(&client_domain),
@@ -41,7 +59,7 @@ impl Transaction {
 	fn helo(&mut self, client_domain: &str) -> String {
 		match self.state {
 			State::Initiated => {
-				if Self::validate_domain(client_domain) {
+				if ArgParser::validate_domain(client_domain) {
 					self.state = State::Greeted;
 					"250 Sail".to_string()
 				} else {
@@ -51,10 +69,11 @@ impl Transaction {
 			_ => Self::bad_command(),
 		}
 	}
+
 	fn ehlo(&mut self, client_domain: &str) -> String {
 		match self.state {
 			State::Initiated => {
-				if Self::validate_domain(client_domain) {
+				if ArgParser::validate_domain(client_domain) {
 					self.state = State::Greeted;
 					"250-Sail\r\n250 Help".to_string()
 				} else {
@@ -64,13 +83,12 @@ impl Transaction {
 			_ => Self::bad_command(),
 		}
 	}
-	fn validate_domain(domain: &str) -> bool {
-		todo!()
-	}
+
 	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
 	fn validate_reverse_path(reverse_path: &str) -> bool {
 		todo!() //this can also have mail parameters, apparently
 	}
+
 	fn validate_forward_path(forward_path: &str) -> bool {
 		todo!()
 	}
@@ -83,6 +101,7 @@ impl Transaction {
 			Self::bad_command()
 		}
 	}
+
 	fn mail(&mut self, reverse_path: &str) -> String {
 		if self.state == State::Greeted && Self::validate_reverse_path(reverse_path) {
 			self.state = State::GotReversePath;
@@ -94,6 +113,7 @@ impl Transaction {
 			Self::bad_command()
 		}
 	}
+
 	fn rcpt(&mut self, forward_path: &str) -> String {
 		if (self.state == State::GotReversePath || self.state == State::GotForwardPath)
 			&& Self::validate_forward_path(forward_path)
@@ -107,6 +127,7 @@ impl Transaction {
 			Self::bad_command()
 		}
 	}
+
 	fn rset(&mut self) -> String {
 		self.state = State::Initiated;
 		self.data = None;
@@ -114,6 +135,7 @@ impl Transaction {
 		self.forward_path = None;
 		String::from("250 OK")
 	}
+
 	fn quit(&mut self) -> String {
 		self.state = State::Exit;
 		String::from("221 Sail Goodbye")
@@ -122,6 +144,7 @@ impl Transaction {
 	fn not_implemented() -> String {
 		String::from("502 Command Not Implemented")
 	}
+
 	fn parse_command(command: &str) -> Command {
 		if command.len() < 4 {
 			return Command::Invalid;
@@ -141,9 +164,11 @@ impl Transaction {
 			_ => Command::Invalid,
 		}
 	}
+
 	fn bad_command() -> String {
 		String::from("503 bad sequence of commands")
 	}
+
 	fn syntax_error() -> String {
 		String::from("500 Syntax Error")
 	}
