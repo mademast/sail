@@ -91,7 +91,7 @@ impl Transaction {
 					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
 				}
 			}
-			_ => Self::bad_command(),
+			_ => self.rset(),
 		}
 	}
 
