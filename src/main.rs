@@ -17,8 +17,8 @@ pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
 	while !transaction.should_exit() {
 		let read = stream.read(&mut buf).await?;
 
-		for i in 0..read {
-			print!("{:02X} ", buf[i]);
+		for byte in buf.iter().take(read) {
+			print!("{:02X} ", byte);
 		}
 		println!("\n{}", String::from_utf8_lossy(&buf[..read]));
 
