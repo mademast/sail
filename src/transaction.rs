@@ -22,18 +22,39 @@ impl Transaction {
 	pub fn push(&mut self, line: &str) -> Option<Response> {
 		self.command.push_str(line);
 
-		if self.command.ends_with("\r\n") {
-			let resp = Some(self.run_command());
+		// Return early if it's not a line
+		if !self.command.ends_with("\r\n") {
+			return None;
+		}
+
+		if self.state == State::LoadingData {
+			let resp = self.loading_data();
 			self.command.clear();
 
 			resp
 		} else {
-			None
+			let resp = Some(self.run_command());
+			self.command.clear();
+
+			resp
 		}
 	}
 
 	pub fn should_exit(&self) -> bool {
 		self.state == State::Exit
+	}
+
+	fn loading_data(&mut self) -> Option<Response> {
+		if self.command == ".\r\n" {
+			// Data is complete
+			todo!()
+		} else if self.command.starts_with(".") {
+			self.data.push_str(&self.command[1..]);
+			None
+		} else {
+			self.data.push_str(&self.command);
+			None
+		}
 	}
 
 	fn run_command(&mut self) -> Response {
@@ -168,6 +189,7 @@ impl Transaction {
 		if command.len() < 4 || !command.is_ascii() {
 			return Command::Invalid;
 		}
+
 		match command.split_at(4) {
 			("HELO", client_domain) => Command::Helo(client_domain.trim().to_owned()),
 			("EHLO", client_domain) => Command::Ehlo(client_domain.trim().to_owned()),
@@ -200,7 +222,6 @@ enum State {
 	GotReversePath,
 	GotForwardPath,
 	LoadingData,
-	GotData,
 	Exit,
 }
 
