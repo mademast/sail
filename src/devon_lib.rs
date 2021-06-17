@@ -99,7 +99,7 @@ impl Transaction {
 			&& Self::validate_forward_path(forward_path)
 		{
 			self.state = State::GotForwardPath;
-			self.forward_path = Some(forward_path[6..].to_string());
+			self.forward_path = Some(forward_path[4..].to_string());
 			String::from("250 OK")
 		} else if self.state == State::GotReversePath || self.state == State::GotForwardPath {
 			"501 Bad Forward Path".to_string()
