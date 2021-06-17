@@ -1,17 +1,68 @@
+// Basic, small parts
 alpha = { 'a'..'z' | 'A'..'Z' }
 digit = { '0'..'9' }
+alphanum = { alpha | digit }
+alphanum_hyphen = { alpha | digit | "-" }
+atext = {
+	alpha | digit |
+	"!" | "#" | "$" | "%" | "&" | "'" |
+	"*" | "+" | "-" | "/" | "=" | "?" |
+	"^" | "_" | "`" | "{" | "|" | "}" | "~" 
+}
+atom = { atext+ }
 
-let_dig = { alpha | digit }
-let_dighpyh = { alpha | digit | "-" }
-ldh_str = {
-	(
-		&let_dighpyh{2} ~ // Be sure there are at least two more characters. One for us and one for let_dig
-		let_dighpyh
-	)* ~
-	let_dig
+qtext = {
+	" " | "!" | '#'..'[' | ']'..'~'
 }
 
-subdomain = { let_dig ~ ldh_str? }
+escaped = { "\\" ~ ' '..'~' }
+
+// IP addresses
+
+ipv4_field = @{
+	("1" ~ digit{2}) | ("2" ~ (('0'..'4' ~ digit) | ("5" ~ '0'..'5'))) |
+	!digit{3} ~ ('1'..'9' ~ digit) |
+	!digit{2} ~ digit
+}
+
+ipv6_field = { ('0'..'9' | 'a'..'f' | 'A'..'F'){1, 4} }
+
+ipv4 = @{ ipv4_field ~ ("." ~ ipv4_field){3} }
+
+ipv6_full = { ipv6_field ~ (":" ~ ipv6_field){7} }
+ipv6 = { SOI ~ EOI } // RFC5321 covers a lot of IPv6. Check with Rust for now
+
+// Some longer things that are used often
+
+dot_string = { atom ~ ("." ~ atom)* }
+quoted_string = { "\"" ~ (qtext | escaped)* ~ "\""}
+
+ldh_str = { (&alphanum_hyphen{2} ~ alphanum_hyphen)* ~ alphanum}
+subdomain = { alphanum ~ ldh_str? }
 domain = @{
-	SOI ~ subdomain ~ ("." ~ subdomain)* ~ EOI
+	subdomain ~ ("." ~ subdomain)*
+}
+
+at_domain = @{
+	"@" ~ domain
+}
+
+adl = @{
+	at_domain ~ ("," ~ at_domain)*
+}
+
+local_part = { dot_string | quoted_string }
+
+// Validation grammars
+
+validate_domain = @{
+	SOI ~ domain ~ EOI
+}
+
+validate_adl = @{
+	SOI ~ adl ~ EOI
+}
+
+validate_local_part = @{
+	SOI ~ local_part ~ EOI
 }

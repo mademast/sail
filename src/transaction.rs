@@ -29,7 +29,10 @@ impl Transaction {
 		self.command.push_str(line);
 
 		if self.command.ends_with("\r\n") {
-			Some(self.run_command())
+			let resp = Some(self.run_command());
+			self.command.clear();
+
+			resp
 		} else {
 			None
 		}
@@ -40,7 +43,7 @@ impl Transaction {
 	}
 
 	fn run_command(&mut self) -> Response {
-		let command = Self::parse_command(&self.command);
+		let command = Self::parse_command(&self.command.strip_suffix("\r\n").unwrap());
 		match command {
 			Command::Helo(client_domain) => self.helo(&client_domain),
 			Command::Ehlo(client_domain) => self.ehlo(&client_domain),
@@ -112,9 +115,11 @@ impl Transaction {
 	}
 
 	fn mail(&mut self, reverse_path: &str) -> Response {
-		if self.state == State::Greeted && Self::validate_reverse_path(reverse_path) {
+		let reverse_path = &reverse_path[5..];
+		println!("'{}'", reverse_path);
+		if self.state == State::Greeted && ArgParser::validate_reverse_path(reverse_path) {
 			self.state = State::GotReversePath;
-			self.reverse_path = Some(reverse_path[6..].to_string());
+			self.reverse_path = Some(reverse_path.to_string());
 
 			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::Greeted {
@@ -125,11 +130,12 @@ impl Transaction {
 	}
 
 	fn rcpt(&mut self, forward_path: &str) -> Response {
+		let forward_path = &forward_path[3..];
 		if (self.state == State::GotReversePath || self.state == State::GotForwardPath)
-			&& Self::validate_forward_path(forward_path)
+			&& ArgParser::validate_forward_path(forward_path)
 		{
 			self.state = State::GotForwardPath;
-			self.forward_path = Some(forward_path[4..].to_string());
+			self.forward_path = Some(forward_path.to_string());
 
 			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::GotReversePath || self.state == State::GotForwardPath {
