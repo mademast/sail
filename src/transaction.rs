@@ -1,25 +1,20 @@
 use crate::ArgParser;
 use crate::{Response, ResponseCode};
 
+#[derive(Default)]
 pub struct Transaction {
 	state: State,
 	command: String,
-	reverse_path: Option<String>,
-	forward_path: Option<String>,
-	data: Option<String>,
+	reverse_path: String,
+	forward_path: Vec<String>,
+	data: String,
 }
 
 #[allow(dead_code)]
 impl Transaction {
 	pub fn initiate() -> (Self, Response) {
 		(
-			Self {
-				state: State::Initiated,
-				command: String::new(),
-				reverse_path: None,
-				forward_path: None,
-				data: None,
-			},
+			Default::default(),
 			Response::with_message(ResponseCode::ServiceReady, "Sail ready"),
 		)
 	}
@@ -115,10 +110,10 @@ impl Transaction {
 
 	fn mail(&mut self, reverse_path: &str) -> Response {
 		let reverse_path = &reverse_path[5..];
-		println!("'{}'", reverse_path);
+
 		if self.state == State::Greeted && ArgParser::validate_reverse_path(reverse_path) {
 			self.state = State::GotReversePath;
-			self.reverse_path = Some(reverse_path.to_string());
+			self.reverse_path = reverse_path.to_string();
 
 			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::Greeted {
@@ -130,11 +125,12 @@ impl Transaction {
 
 	fn rcpt(&mut self, forward_path: &str) -> Response {
 		let forward_path = &forward_path[3..];
+
 		if (self.state == State::GotReversePath || self.state == State::GotForwardPath)
 			&& ArgParser::validate_forward_path(forward_path)
 		{
 			self.state = State::GotForwardPath;
-			self.forward_path = Some(forward_path.to_string());
+			self.forward_path.push(forward_path.to_string());
 
 			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::GotReversePath || self.state == State::GotForwardPath {
@@ -146,9 +142,9 @@ impl Transaction {
 
 	fn rset(&mut self) -> Response {
 		self.state = State::Initiated;
-		self.data = None;
-		self.reverse_path = None;
-		self.forward_path = None;
+		self.data.clear();
+		self.reverse_path.clear();
+		self.forward_path.clear();
 
 		Response::with_message(ResponseCode::Okay, "Okay")
 	}
@@ -205,6 +201,13 @@ enum State {
 	GotData,
 	Exit,
 }
+
+impl Default for State {
+	fn default() -> Self {
+		Self::Initiated
+	}
+}
+
 enum Command {
 	Helo(String),
 	Ehlo(String),
