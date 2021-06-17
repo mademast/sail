@@ -25,15 +25,15 @@ impl Transaction {
 		match command {
 			Command::Helo(client_domain) => self.helo(&client_domain),
 			Command::Ehlo(client_domain) => self.ehlo(&client_domain),
-			Command::Mail(_) => todo!(),
-			Command::Rcpt(_) => todo!(),
+			Command::Mail(reverse_path) => self.mail(&reverse_path),
+			Command::Rcpt(forward_path) => self.rcpt(&forward_path),
 			Command::Data => self.data(),
-			Command::Rset => todo!(),
+			Command::Rset => self.rset(),
 			Command::Vrfy(_) => todo!(),
 			Command::Expn(_) => Self::not_implemented(),
 			Command::Help(_) => String::from("214 Please review RFC 5321"),
 			Command::Noop => String::from("250 OK"),
-			Command::Quit => String::from("221 Goodbye"),
+			Command::Quit => String::from("221 Sail Goodbye"),
 			Command::Invalid => Self::syntax_error(),
 		}
 	}
@@ -67,6 +67,13 @@ impl Transaction {
 	fn validate_domain(domain: &str) -> bool {
 		todo!()
 	}
+	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
+    fn validate_reverse_path(reverse_path: &str) -> bool {
+		todo!() //this can also have mail parameters, apparently
+	}
+	fn validate_forward_path(forward_path: &str) -> bool {
+		todo!()
+	}
 
 	fn data(&mut self) -> String {
 		if self.state == State::GotForwardPath {
@@ -76,7 +83,37 @@ impl Transaction {
 			Self::bad_command()
 		}
 	}
-
+	fn mail(&mut self, reverse_path: &str) -> String {
+		if self.state == State::Greeted && Self::validate_reverse_path(reverse_path) {
+			self.state = State::GotReversePath;
+			self.reverse_path = Some(reverse_path[6..].to_string());
+			String::from("250 OK")
+		} else if self.state == State::Greeted {
+			"501 Bad Reverse Path".to_string()
+		} else {
+			Self::bad_command()
+		}
+	}
+	fn rcpt(&mut self, forward_path: &str) -> String {
+		if (self.state == State::GotReversePath || self.state == State::GotForwardPath)
+			&& Self::validate_forward_path(forward_path)
+		{
+			self.state = State::GotForwardPath;
+			self.forward_path = Some(forward_path[6..].to_string());
+			String::from("250 OK")
+		} else if self.state == State::GotReversePath || self.state == State::GotForwardPath {
+			"501 Bad Forward Path".to_string()
+		} else {
+			Self::bad_command()
+		}
+	}
+    fn rset(&mut self) -> String {
+        self.state = State::Initiated;
+        self.data = None;
+        self.reverse_path = None;
+        self.forward_path = None;
+        String::from("250 OK")
+    }
 	fn not_implemented() -> String {
 		String::from("502 Command Not Implemented")
 	}
