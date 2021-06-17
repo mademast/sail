@@ -67,13 +67,13 @@ mod test {
 		let should_pass = ["domain", "0domain", "domain0", "0-domain", "domain-0"];
 
 		// These should all pass on their own
-		for name in should_pass.iter() {
+		for name in should_pass {
 			valid.push(name.to_string());
 		}
 
 		// ... as well as when joined with a dot
-		for name in should_pass.iter() {
-			for name2 in should_pass.iter() {
+		for name in should_pass {
+			for name2 in should_pass {
 				valid.push(format!("{}.{}", name, name2));
 			}
 		}
@@ -108,7 +108,7 @@ mod test {
 		];
 
 		// These should all pass on their own
-		for name in should_pass.iter() {
+		for name in should_pass {
 			assert!(
 				ArgParser::validate_domain(name),
 				"ArgParser::validate_domain() failed on {}",
@@ -117,8 +117,8 @@ mod test {
 		}
 
 		// ... as well as when joined with a dot
-		for name in should_pass.iter() {
-			for name2 in should_pass.iter() {
+		for name in should_pass {
+			for name2 in should_pass {
 				let catname = format!("{}.{}", name, name2);
 				assert!(
 					ArgParser::validate_domain(&catname),
@@ -129,7 +129,7 @@ mod test {
 		}
 
 		// should not allow: leading/trailing period/hyphen
-		for name in should_pass.iter() {
+		for name in should_pass {
 			let fmtname = format!(".{}", name);
 			assert!(
 				!ArgParser::validate_domain(&fmtname),
@@ -165,8 +165,8 @@ mod test {
 		let domains = valid_domains();
 		let locals = valid_localparts();
 
-		for domain in domains.iter() {
-			for local in locals.iter() {
+		for domain in domains {
+			for local in &locals {
 				let fmtname = format!("{}@{}", local, domain);
 				assert!(
 					ArgParser::validate_mailbox(&fmtname),
