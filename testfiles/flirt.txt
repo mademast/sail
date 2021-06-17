@@ -1,0 +1,36 @@
+G: 220 genny Human Mail Bridge
+K: HELO genny
+G: 250 genny
+K: MAIL FROM: Kate
+G: 553 5.1.0 address syntax error
+K: god damn it genny
+K: MAIL FROM:<@thingskatedid>
+G: 553 5.1.0 address syntax error
+K: MAIL FROM:<not!or!me!from!mail!want!you!do!kate>
+G: 250 okay, very nice address
+K: RCPT TO:<::1!genny>
+G: 250 Receipt ok
+K: DATA
+G: 354
+K: Subject: i wub u genny
+K: Content-Type: multipart/mixed; boundary="--"
+K: --
+K: Content-Type: text/plain
+K: Content-transfer-encoding: base64
+K: 8J+SnA==
+K: --
+K: .
+G: 550 Message refused: originiation date and address fields required as per RFC5322 section 3.6
+K: MAIL FROM: <kate@::1>
+G: 250 ok, hello kate
+K: RCPT TO: <genny@::1>
+G: 250 recipient ok
+K: DATA
+G: 354 awaiting mail
+K: Subject: following up about the date you requested
+K: From: Kate <kate@::1>
+K: Date: genny will you go on a date with me
+K: .
+G: 250 OK, yes
+K: QUIT
+G: 221 Goodbye

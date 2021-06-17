@@ -1,0 +1,24 @@
+S: 220 xyz.com Simple Mail Transfer Service Ready
+C: EHLO foo.com
+S: 250 xyz.com is on the air
+C: MAIL FROM:<JQP@bar.com>
+S: 250 OK
+C: RCPT TO:<Jones@XYZ.COM>
+S: 250 OK
+C: DATA
+S: 354 Start mail input; end with <CRLF>.<CRLF>
+C: Received: from bar.com by foo.com ; Thu, 21 May 1998
+C:     05:33:29 -0700
+C: Date: Thu, 21 May 1998 05:33:22 -0700
+C: From: John Q. Public <JQP@bar.com>
+C: Subject:  The Next Meeting of the Board
+C: To: Jones@xyz.com
+C:
+C: Bill:
+C: The next meeting of the board of directors will be
+C: on Tuesday.
+C:                         John.
+C: .
+S: 250 OK
+C: QUIT
+S: 221 foo.com Service closing transmission channel
