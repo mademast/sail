@@ -7,8 +7,10 @@ use smol::{
 };
 
 pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
-	let (mut transaction, inital_message) = Transaction::initiate();
-	stream.write_all(inital_message.as_bytes()).await?;
+	let (mut transaction, inital_response) = Transaction::initiate();
+	stream
+		.write_all(inital_response.as_string().as_bytes())
+		.await?;
 
 	let mut buf = vec![0; 1024];
 
@@ -22,8 +24,8 @@ pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
 
 		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref());
 
-		if let Some(respond) = response {
-			stream.write_all(respond.as_bytes()).await?;
+		if let Some(response) = response {
+			stream.write_all(response.as_string().as_bytes()).await?;
 		}
 	}
 

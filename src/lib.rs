@@ -1,7 +1,7 @@
 mod argparser;
+mod response;
 mod transaction;
 
-use std::fmt::format;
-
 use argparser::ArgParser;
+pub use response::{Response, ResponseCode};
 pub use transaction::Transaction;

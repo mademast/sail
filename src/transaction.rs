@@ -1,5 +1,6 @@
 #[allow(dead_code)]
 use crate::ArgParser;
+use crate::{Response, ResponseCode};
 
 pub struct Transaction {
 	state: State,
@@ -11,7 +12,7 @@ pub struct Transaction {
 
 #[allow(dead_code)]
 impl Transaction {
-	pub fn initiate() -> (Self, String) {
+	pub fn initiate() -> (Self, Response) {
 		(
 			Self {
 				state: State::Initiated,
@@ -20,11 +21,11 @@ impl Transaction {
 				forward_path: None,
 				data: None,
 			},
-			String::from("220 Sail Ready\r\n"),
+			Response::with_message(ResponseCode::ServiceReady, "Sail ready"),
 		)
 	}
 
-	pub fn push(&mut self, line: &str) -> Option<String> {
+	pub fn push(&mut self, line: &str) -> Option<Response> {
 		self.command.push_str(line);
 
 		if self.command.ends_with("\r\n") {
@@ -38,7 +39,7 @@ impl Transaction {
 		self.state == State::Exit
 	}
 
-	fn run_command(&mut self) -> String {
+	fn run_command(&mut self) -> Response {
 		let command = Self::parse_command(&self.command);
 		match command {
 			Command::Helo(client_domain) => self.helo(&client_domain),
@@ -49,35 +50,43 @@ impl Transaction {
 			Command::Rset => self.rset(),
 			Command::Vrfy(_) => todo!(),
 			Command::Expn(_) => Self::not_implemented(),
-			Command::Help(_) => String::from("214 Please review RFC 5321"),
-			Command::Noop => String::from("250 OK"),
+			Command::Help(_) => {
+				Response::with_message(ResponseCode::HelpMessage, "Please review RFC 5321")
+			}
+			Command::Noop => Response::with_message(ResponseCode::Okay, "Okay"),
 			Command::Quit => self.quit(),
 			Command::Invalid => Self::syntax_error(),
 		}
 	}
 
-	fn helo(&mut self, client_domain: &str) -> String {
+	fn helo(&mut self, client_domain: &str) -> Response {
 		match self.state {
 			State::Initiated => {
 				if ArgParser::validate_domain(client_domain) {
 					self.state = State::Greeted;
-					"250 Sail".to_string()
+
+					Response::with_message(
+						ResponseCode::Okay,
+						format!("sail Hello {}", client_domain),
+					)
 				} else {
-					String::from("501 Bad Domain")
+					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
 				}
 			}
 			_ => Self::bad_command(),
 		}
 	}
 
-	fn ehlo(&mut self, client_domain: &str) -> String {
+	fn ehlo(&mut self, client_domain: &str) -> Response {
 		match self.state {
 			State::Initiated => {
+				//TODO: Check for address literals, too
 				if ArgParser::validate_domain(client_domain) {
 					self.state = State::Greeted;
-					"250-Sail\r\n250 Help".to_string()
+
+					Response::with_message(ResponseCode::Okay, "Okay").push("Help")
 				} else {
-					String::from("501 Bad Domain")
+					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
 				}
 			}
 			_ => Self::bad_command(),
@@ -93,56 +102,63 @@ impl Transaction {
 		todo!()
 	}
 
-	fn data(&mut self) -> String {
+	fn data(&mut self) -> Response {
 		if self.state == State::GotForwardPath {
 			self.state = State::LoadingData;
-			"354 Start mail input; end with <CRLF>.<CRLF>".to_string()
+			Response::with_message(ResponseCode::StartMailInput, "Start mail input")
 		} else {
 			Self::bad_command()
 		}
 	}
 
-	fn mail(&mut self, reverse_path: &str) -> String {
+	fn mail(&mut self, reverse_path: &str) -> Response {
 		if self.state == State::Greeted && Self::validate_reverse_path(reverse_path) {
 			self.state = State::GotReversePath;
 			self.reverse_path = Some(reverse_path[6..].to_string());
-			String::from("250 OK")
+
+			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::Greeted {
-			"501 Bad Reverse Path".to_string()
+			Response::with_message(ResponseCode::InvalidParameters, "Bad reverse path")
 		} else {
 			Self::bad_command()
 		}
 	}
 
-	fn rcpt(&mut self, forward_path: &str) -> String {
+	fn rcpt(&mut self, forward_path: &str) -> Response {
 		if (self.state == State::GotReversePath || self.state == State::GotForwardPath)
 			&& Self::validate_forward_path(forward_path)
 		{
 			self.state = State::GotForwardPath;
 			self.forward_path = Some(forward_path[4..].to_string());
-			String::from("250 OK")
+
+			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::GotReversePath || self.state == State::GotForwardPath {
-			"501 Bad Forward Path".to_string()
+			Response::with_message(ResponseCode::InvalidParameters, "Bad forward path")
 		} else {
 			Self::bad_command()
 		}
 	}
 
-	fn rset(&mut self) -> String {
+	fn rset(&mut self) -> Response {
 		self.state = State::Initiated;
 		self.data = None;
 		self.reverse_path = None;
 		self.forward_path = None;
-		String::from("250 OK")
+
+		Response::with_message(ResponseCode::Okay, "Okay")
 	}
 
-	fn quit(&mut self) -> String {
+	fn quit(&mut self) -> Response {
 		self.state = State::Exit;
-		String::from("221 Sail Goodbye")
+
+		Response::with_message(ResponseCode::ServiceClosing, "sail Goodbye")
 	}
 
-	fn not_implemented() -> String {
-		String::from("502 Command Not Implemented")
+	fn not_implemented() -> Response {
+		Response::with_message(
+			ResponseCode::CommandNotImplemented,
+			"Command not implemented",
+		)
 	}
 
 	fn parse_command(command: &str) -> Command {
@@ -165,12 +181,12 @@ impl Transaction {
 		}
 	}
 
-	fn bad_command() -> String {
-		String::from("503 bad sequence of commands")
+	fn bad_command() -> Response {
+		Response::with_message(ResponseCode::BadCommandSequence, "bad sequence of commands")
 	}
 
-	fn syntax_error() -> String {
-		String::from("500 Syntax Error")
+	fn syntax_error() -> Response {
+		Response::with_message(ResponseCode::UnrecognizedCommand, "Syntax Error")
 	}
 }
 
