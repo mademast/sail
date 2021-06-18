@@ -7,7 +7,7 @@ use pest::Parser;
 use pest_derive::*;
 
 #[derive(Parser)]
-#[grammar = "grammar.pest"]
+#[grammar = "smtp_grammar.pest"]
 struct GrammarParser;
 
 pub struct ArgParser;
