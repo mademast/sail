@@ -47,7 +47,7 @@ impl Transaction {
 	fn loading_data(&mut self) -> Option<Response> {
 		if self.command == ".\r\n" {
 			// Data is complete
-			todo!()
+			Some(self.got_data())
 		} else if self.command.starts_with(".") {
 			self.data.push_str(&self.command[1..]);
 			None
@@ -55,6 +55,16 @@ impl Transaction {
 			self.data.push_str(&self.command);
 			None
 		}
+	}
+
+	//TODO: Check that the data is valid! (rfc 5322)
+	fn got_data(&mut self) -> Response {
+		print!("{}", self.data);
+
+		self.rset();
+		self.state = State::Greeted;
+
+		Response::with_message(ResponseCode::Okay, "message accepted for delivery")
 	}
 
 	fn run_command(&mut self) -> Response {

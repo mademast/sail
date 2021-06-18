@@ -24,10 +24,10 @@ pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
 			return Ok(());
 		}
 
-		for byte in buf.iter().take(read) {
+		/*for byte in buf.iter().take(read) {
 			print!("{:02X} ", byte);
 		}
-		println!("\n{}", String::from_utf8_lossy(&buf[..read]));
+		println!("\n{}", String::from_utf8_lossy(&buf[..read]));*/
 
 		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref());
 
