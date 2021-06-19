@@ -17,7 +17,7 @@ impl ArgParser {
 	}
 
 	pub fn validate_address_literal(literal: &str) -> bool {
-		// literals must be cotnaiend within square brackets
+		// literals must be contained within square brackets
 		if let Some(literal) = literal.strip_prefix("[") {
 			if let Some(stripped) = literal.strip_suffix("]") {
 				if let Some(ipv6_literal) = stripped.strip_prefix("IPv6:") {

@@ -10,7 +10,6 @@ pub struct Transaction {
 	data: String,
 }
 
-#[allow(dead_code)]
 impl Transaction {
 	pub fn initiate() -> (Self, Response) {
 		(
