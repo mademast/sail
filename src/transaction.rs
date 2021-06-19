@@ -67,7 +67,7 @@ impl Transaction {
 	}
 
 	fn run_command(&mut self) -> Response {
-		let command = Self::parse_command(&self.command.strip_suffix("\r\n").unwrap());
+		let command = Self::parse_command(&self.command.trim_end().unwrap());
 		match command {
 			Command::Helo(client_domain) => self.helo(&client_domain),
 			Command::Ehlo(client_domain) => self.ehlo(&client_domain),
