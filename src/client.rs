@@ -41,11 +41,52 @@ impl Client {
 		}
 		let (code, text) = self.reply.split_at(3);
 
+		//todo: parse multiline replies e.g. ehlo
 		//todo: parse unknown response codes according to their first digit
 		let code = ResponseCode::from_code(code.parse().ok()?)?;
 
 		match self.state {
-			_ => todo!(),
+			State::Initiated => match code {
+				ResponseCode::ServiceReady => {
+					self.state = State::Greeted;
+					Some(Command::Ehlo("Sail".to_string()))
+				}
+				_ => todo!(),
+			},
+			State::Greeted => match code {
+				ResponseCode::Okay => {
+					self.state = State::SentReversePath;
+					Some(Command::Mail(self.reverse_path.clone()))
+				}
+                _ => todo!()
+			},
+			State::SentReversePath => match code {
+                ResponseCode::Okay => {
+                    self.state = State::SendingForwardPaths;
+                    Some(Command::Mail(self.forward_path.pop()?))
+                }
+                _ => todo!()
+            },
+			State::SendingForwardPaths => {
+                if let Some(path) = self.forward_path.pop() {
+                    match code {
+                        ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
+                            Some(Command::Mail(path))
+                        }
+                        _ => todo!()
+                    }
+                } else {
+                    match code {
+                        ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
+                            self.state = State::SendingData;
+                            Some(Command::Data)
+                        }
+                        _ => todo!()
+                    }
+                }
+            },
+			State::SendingData => unreachable!(),
+            State::ShouldExit => unreachable!()
 		}
 	}
 }
@@ -53,9 +94,10 @@ impl Client {
 enum State {
 	Initiated,
 	Greeted,
-	SentForwardPath,
-	SendingReversePaths,
+	SentReversePath,
+	SendingForwardPaths,
 	SendingData,
+    ShouldExit,
 }
 
 impl Default for State {
