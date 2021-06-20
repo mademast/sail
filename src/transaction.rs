@@ -1,4 +1,5 @@
 use crate::ArgParser;
+use crate::message::Message;
 use crate::{Response, ResponseCode};
 use crate::command::Command;
 
@@ -6,9 +7,7 @@ use crate::command::Command;
 pub struct Transaction {
 	state: State,
 	command: String,
-	reverse_path: String,
-	forward_path: Vec<String>,
-	data: String,
+	message: Message
 }
 
 impl Transaction {
@@ -50,17 +49,17 @@ impl Transaction {
 			Some(self.got_data())
 		//transparency to allow clients to send \r\n.\r\n without breaking SMTP
 		} else if self.command.starts_with('.') {
-			self.data.push_str(&self.command[1..]);
+			self.message.data.push(self.command[1..].to_string());
 			None
 		} else {
-			self.data.push_str(&self.command);
+			self.message.data.push(self.command.clone());
 			None
 		}
 	}
 
 	//TODO: Check that the data is valid! (rfc 5322)
 	fn got_data(&mut self) -> Response {
-		print!("{}", self.data);
+		println!("{}", self.message.data.join("\r\n"));
 
 		self.rset();
 		self.state = State::Greeted;
@@ -147,7 +146,7 @@ impl Transaction {
 
 		if self.state == State::Greeted && ArgParser::validate_reverse_path(reverse_path) {
 			self.state = State::GotReversePath;
-			self.reverse_path = reverse_path.to_string();
+			self.message.reverse_path = reverse_path.to_string();
 
 			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::Greeted {
@@ -164,7 +163,7 @@ impl Transaction {
 			&& ArgParser::validate_forward_path(forward_path)
 		{
 			self.state = State::GotForwardPath;
-			self.forward_path.push(forward_path.to_string());
+			self.message.forward_paths.push(forward_path.to_string());
 
 			Response::with_message(ResponseCode::Okay, "Okay")
 		} else if self.state == State::GotReversePath || self.state == State::GotForwardPath {
@@ -175,9 +174,9 @@ impl Transaction {
 	}
 
 	fn rset(&mut self) -> Response {
-		self.data.clear();
-		self.reverse_path.clear();
-		self.forward_path.clear();
+		self.message.data.clear();
+		self.message.reverse_path.clear();
+		self.message.forward_paths.clear();
 
 		self.state = match self.state {
 			State::Initiated => State::Initiated,

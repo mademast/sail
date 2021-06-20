@@ -2,25 +2,26 @@
 pub struct Client {
 	state: State,
 	reply: String,
-	reverse_path: String,
-	forward_path: Vec<String>,
-	data: Vec<String>,
+	message: Message,
 }
 
 use crate::command::Command;
+use crate::message::Message;
 use crate::response::ResponseCode;
 
 impl Client {
 	pub fn initiate(
-		forward_path: Vec<String>,
+		forward_paths: Vec<String>,
 		reverse_path: String,
 		data: Vec<String>,
 	) -> (Self, String) {
 		(
 			Self {
-				reverse_path,
-				forward_path,
-				data,
+				message: Message {
+					reverse_path,
+					forward_paths,
+					data,
+				},
 				..Default::default()
 			},
 			Command::Ehlo("Sail".to_string()).as_string(),
@@ -58,19 +59,19 @@ impl Client {
 			State::Greeted => match code {
 				ResponseCode::Okay => {
 					self.state = State::SentReversePath;
-					Some(Command::Mail(self.reverse_path.clone()))
+					Some(Command::Mail(self.message.reverse_path.clone()))
 				}
 				_ => todo!(),
 			},
 			State::SentReversePath => match code {
 				ResponseCode::Okay => {
 					self.state = State::SendingForwardPaths;
-					Some(Command::Mail(self.forward_path.pop()?))
+					Some(Command::Mail(self.message.forward_paths.pop()?))
 				}
 				_ => todo!(),
 			},
 			State::SendingForwardPaths => {
-				if let Some(path) = self.forward_path.pop() {
+				if let Some(path) = self.message.forward_paths.pop() {
 					match code {
 						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
 							Some(Command::Mail(path))
