@@ -1,5 +1,6 @@
 use crate::ArgParser;
 use crate::{Response, ResponseCode};
+use crate::command::Command;
 
 #[derive(Default)]
 pub struct Transaction {
@@ -47,6 +48,7 @@ impl Transaction {
 		if self.command == ".\r\n" {
 			// Data is complete
 			Some(self.got_data())
+		//transparency to allow clients to send \r\n.\r\n without breaking SMTP
 		} else if self.command.starts_with('.') {
 			self.data.push_str(&self.command[1..]);
 			None
@@ -239,19 +241,4 @@ impl Default for State {
 	fn default() -> Self {
 		Self::Initiated
 	}
-}
-
-enum Command {
-	Helo(String),
-	Ehlo(String),
-	Mail(String),
-	Rcpt(String),
-	Data,
-	Rset,
-	Vrfy(String),
-	Expn(String),
-	Help(String),
-	Noop,
-	Quit,
-	Invalid,
 }
