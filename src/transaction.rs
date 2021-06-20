@@ -47,7 +47,7 @@ impl Transaction {
 		if self.command == ".\r\n" {
 			// Data is complete
 			Some(self.got_data())
-		} else if self.command.starts_with(".") {
+		} else if self.command.starts_with('.') {
 			self.data.push_str(&self.command[1..]);
 			None
 		} else {
@@ -173,10 +173,14 @@ impl Transaction {
 	}
 
 	fn rset(&mut self) -> Response {
-		self.state = State::Initiated;
 		self.data.clear();
 		self.reverse_path.clear();
 		self.forward_path.clear();
+
+		self.state = match self.state {
+			State::Initiated => State::Initiated,
+			_ => State::Greeted,
+		};
 
 		Response::with_message(ResponseCode::Okay, "Okay")
 	}
