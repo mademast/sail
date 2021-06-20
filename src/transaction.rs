@@ -195,7 +195,8 @@ impl Transaction {
 	}
 
 	fn parse_command(command: &str) -> Command {
-		match command.split_once(' ').unwrap_or((command, "")) {
+		let command = command.split_once(' ').unwrap_or((command, ""));
+		match (command.0.to_ascii_uppercase().as_str(), command.1) {
 			("HELO", client_domain) => Command::Helo(client_domain.trim().to_owned()),
 			("EHLO", client_domain) => Command::Ehlo(client_domain.trim().to_owned()),
 			("MAIL", reverse_path) => Command::Mail(reverse_path.trim().to_owned()),
