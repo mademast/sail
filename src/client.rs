@@ -33,6 +33,8 @@ impl Client {
 			return None;
 		}
 
+		//todo: process shouldExit and sendingData state variants
+
 		self.process_reply()
 	}
 	fn process_reply(&mut self) -> Option<Command> {
@@ -58,35 +60,35 @@ impl Client {
 					self.state = State::SentReversePath;
 					Some(Command::Mail(self.reverse_path.clone()))
 				}
-                _ => todo!()
+				_ => todo!(),
 			},
 			State::SentReversePath => match code {
-                ResponseCode::Okay => {
-                    self.state = State::SendingForwardPaths;
-                    Some(Command::Mail(self.forward_path.pop()?))
-                }
-                _ => todo!()
-            },
+				ResponseCode::Okay => {
+					self.state = State::SendingForwardPaths;
+					Some(Command::Mail(self.forward_path.pop()?))
+				}
+				_ => todo!(),
+			},
 			State::SendingForwardPaths => {
-                if let Some(path) = self.forward_path.pop() {
-                    match code {
-                        ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
-                            Some(Command::Mail(path))
-                        }
-                        _ => todo!()
-                    }
-                } else {
-                    match code {
-                        ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
-                            self.state = State::SendingData;
-                            Some(Command::Data)
-                        }
-                        _ => todo!()
-                    }
-                }
-            },
+				if let Some(path) = self.forward_path.pop() {
+					match code {
+						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
+							Some(Command::Mail(path))
+						}
+						_ => todo!(),
+					}
+				} else {
+					match code {
+						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
+							self.state = State::SendingData;
+							Some(Command::Data)
+						}
+						_ => todo!(),
+					}
+				}
+			}
 			State::SendingData => unreachable!(),
-            State::ShouldExit => unreachable!()
+			State::ShouldExit => unreachable!(),
 		}
 	}
 }
@@ -97,7 +99,7 @@ enum State {
 	SentReversePath,
 	SendingForwardPaths,
 	SendingData,
-    ShouldExit,
+	ShouldExit,
 }
 
 impl Default for State {
