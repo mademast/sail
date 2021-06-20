@@ -195,22 +195,18 @@ impl Transaction {
 	}
 
 	fn parse_command(command: &str) -> Command {
-		if command.len() < 4 || !command.is_ascii() {
-			return Command::Invalid;
-		}
-
-		match command.split_at(4) {
+		match command.split_once(' ').unwrap_or((command, "")) {
 			("HELO", client_domain) => Command::Helo(client_domain.trim().to_owned()),
 			("EHLO", client_domain) => Command::Ehlo(client_domain.trim().to_owned()),
 			("MAIL", reverse_path) => Command::Mail(reverse_path.trim().to_owned()),
 			("RCPT", forward_path) => Command::Rcpt(forward_path.trim().to_owned()),
-			("DATA", _) => Command::Data,
-			("RSET", _) => Command::Rset,
+			("DATA", "") => Command::Data,
+			("RSET", "") => Command::Rset,
 			("VRFY", target) => Command::Vrfy(target.trim().to_owned()),
 			("EXPN", list) => Command::Expn(list.trim().to_owned()),
 			("HELP", command) => Command::Help(command.trim().to_owned()),
 			("NOOP", _) => Command::Noop,
-			("QUIT", _) => Command::Quit,
+			("QUIT", "") => Command::Quit,
 			_ => Command::Invalid,
 		}
 	}
