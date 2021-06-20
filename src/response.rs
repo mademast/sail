@@ -1,4 +1,3 @@
-use std::fmt;
 
 pub struct Response {
 	code: ResponseCode,
@@ -26,10 +25,10 @@ impl Response {
 		self
 	}
 
-	pub fn as_string(mut self) -> String {
+	pub fn as_string(&self) -> String {
 		let mut ret = format!("{} ", self.code.as_code());
 
-		if let Some(message) = self.messages.pop() {
+		if let Some(message) = self.messages.last() {
 			ret.push_str(&message);
 		}
 
@@ -42,6 +41,7 @@ impl Response {
 	}
 }
 
+#[derive(Clone, Copy)]
 pub enum ResponseCode {
 	UnrecognizedCommand,   // 500
 	InvalidParameters,     // 501
@@ -148,7 +148,7 @@ mod test {
 
 	#[test]
 	fn response_as_string_multiline() {
-		let mut resp = Response::with_message(ResponseCode::Okay, "line1").push("line2");
+		let resp = Response::with_message(ResponseCode::Okay, "line1").push("line2");
 
 		assert_eq!(resp.as_string(), String::from("250-line1\r\n250 line2\r\n"));
 	}
