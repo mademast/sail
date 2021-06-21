@@ -22,17 +22,9 @@ jobs:
       with:
         profile: minimal
         toolchain: stable
+        
+    - uses: Swatinem/rust-cache@v1
     
-    - name: Cache
-      uses: actions/cache@v2.1.6
-      with:
-        # A list of files, directories, and wildcard patterns to cache and restore
-        path: target
-        # An explicit key for restoring and saving the cache
-        key: cargo-${{ runner.os }}-build-${{ hashFiles('Cargo.lock') }}
-        restore-keys: |
-          cargo-${{ runner.os }}-build-
-          cargo-${{ runner.os }}-
     - name: Build
       run: cargo build
     - name: Run tests
