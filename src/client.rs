@@ -5,6 +5,7 @@ pub struct Client {
 	message: Message,
 }
 
+use std::collections::HashSet;
 use std::net::IpAddr;
 
 use trust_dns_resolver::Resolver;
@@ -109,6 +110,35 @@ impl Client {
 		let mx_domain = mx_rec.first()?.1.clone();
 		let mx_ip = resolver.lookup_ip(mx_domain).ok()?;
 		mx_ip.iter().next()
+	}
+
+	fn run(self) {
+		let domains: HashSet<&str> = self
+			.message
+			.forward_paths
+			.iter()
+			.map(|path| path.split_once('@').unwrap().1)
+			.collect();
+
+		let mut paths_by_domain: Vec<(&str, Vec<String>)> = vec![];
+
+		for domain in domains {
+			paths_by_domain.push(
+				(domain,
+				self.message
+					.forward_paths
+					.clone()
+					.into_iter()
+					.filter(|path| path.split_once('@').unwrap().1 == domain)
+					.collect())
+			)
+		}
+
+		for (domain, paths) in paths_by_domain {
+			if let Some(address) = Self::get_mx_record(domain) {
+				todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
+			}
+		}
 	}
 }
 
