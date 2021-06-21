@@ -17,6 +17,12 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     
+    - name: Install minimal stable
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+    
     - name: Cache
       uses: actions/cache@v2.1.6
       with:
