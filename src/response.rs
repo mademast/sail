@@ -25,20 +25,21 @@ impl Response {
 		self
 	}
 
-	pub fn as_string(&self) -> String {
-		let mut ret = format!("{} ", self.code.as_code());
+    pub fn as_string(&self) -> String {
+        let mut working = self.messages.clone();
+        let mut ret = format!("{} ", self.code.as_code());
 
-		if let Some(message) = self.messages.last() {
-			ret.push_str(&message);
-		}
+        if let Some(message) = working.pop() {
+            ret.push_str(&message);
+        }
 
-		for message in self.messages.iter() {
-			ret.insert_str(0, &format!("250-{}\r\n", message));
-		}
+        for message in working {
+            ret.insert_str(0, &format!("{}-{}\r\n", self.code.as_code(), message));
+        }
 
-		ret.push_str("\r\n");
-		ret
-	}
+        ret.push_str("\r\n");
+        ret
+    }
 }
 
 #[derive(Clone, Copy)]
