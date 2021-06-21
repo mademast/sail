@@ -117,7 +117,7 @@ impl Client {
 			.message
 			.forward_paths
 			.iter()
-			.map(|path| path.split_once('@').unwrap().1)
+			.map(|path| path.split_once('@').unwrap().1) //map paths to the second half of the string
 			.collect();
 
 		let mut paths_by_domain: Vec<(&str, Vec<String>)> = vec![];
@@ -129,15 +129,27 @@ impl Client {
 					.forward_paths
 					.clone()
 					.into_iter()
-					.filter(|path| path.split_once('@').unwrap().1 == domain)
+					.filter(|path| path.split_once('@').unwrap().1 == domain) //filter for paths to the current domain
 					.collect())
 			)
 		}
 
 		for (domain, paths) in paths_by_domain {
-			if let Some(address) = Self::get_mx_record(domain) {
-				todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
+			//parse ipv4 and ipv6 literals
+			let address = if let Some(address) = domain.strip_prefix("[Ipv6:") {
+				let address: IpAddr = address.strip_suffix("]").unwrap().parse().unwrap();
+				address
+			} else if let Some(address) = domain.strip_prefix("[") {
+				let address: IpAddr = address.strip_suffix("]").unwrap().parse().unwrap();
+				address
 			}
+			else if let Some(address) = Self::get_mx_record(domain) {
+				address
+			} else {
+				unreachable!()
+			};
+
+			todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
 		}
 	}
 }
