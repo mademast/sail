@@ -60,6 +60,8 @@ impl Transaction {
 	//TODO: Check that the data is valid! (rfc 5322)
 	fn got_data(&mut self) -> Response {
 		println!("{}", self.message.data.join("\r\n"));
+		//todo: serialize into a file (serde, perhaps?) and pass off to the client process
+		//alternatively, pass into a thread that we spawn here to handle that. That might be the better option?
 
 		self.rset();
 		self.state = State::Greeted;

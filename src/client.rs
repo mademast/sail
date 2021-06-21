@@ -5,6 +5,10 @@ pub struct Client {
 	message: Message,
 }
 
+use std::net::IpAddr;
+
+use trust_dns_resolver::Resolver;
+
 use crate::command::Command;
 use crate::message::Message;
 use crate::response::ResponseCode;
@@ -91,6 +95,20 @@ impl Client {
 			State::SendingData => unreachable!(),
 			State::ShouldExit => unreachable!(),
 		}
+	}
+
+	fn get_mx_record(fqdn: &str) -> Option<IpAddr> {
+		let mut resolver = Resolver::default().ok()?;
+		let mut mx_rec: Vec<(u16, String)> = resolver
+			.mx_lookup(fqdn)
+			.ok()?
+			.iter()
+			.map(|mx| (mx.preference(), mx.exchange().to_string()))
+			.collect();
+		mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2));
+		let mx_domain = mx_rec.first()?.1.clone();
+		let mx_ip = resolver.lookup_ip(mx_domain).ok()?;
+		mx_ip.iter().next()
 	}
 }
 
