@@ -94,7 +94,7 @@ impl Client {
 	}
 
 	fn get_mx_record(fqdn: &str) -> Option<IpAddr> {
-		let mut resolver = Resolver::default().ok()?;
+		let resolver = Resolver::default().ok()?;
 		let mut mx_rec: Vec<(u16, String)> = resolver
 			.mx_lookup(fqdn)
 			.ok()?
@@ -167,15 +167,33 @@ impl Client {
 			if read == 0 {
 				println!("Connection unexpectedly closed by server");
 				return;
-
-				let command = client.push(String::from_utf8_lossy(&buf[..read]).as_ref());
-
-				if let Some(command) = command {
-					stream
-						.write_all(command.as_string().as_bytes())
-						.await
-						.unwrap();
+			}
+			if client.state == State::SendingData
+				&& buf.ends_with("\r\n".as_bytes())
+				&& buf.starts_with("354".as_bytes())
+			{
+				//todo: transparency? leading .?
+				for line in &client.message.data {
+					stream.write_all(line.as_bytes()).await.unwrap();
+					stream.write_all("\r\n".as_bytes()).await.unwrap()
 				}
+				stream.write_all(".\r\n".as_bytes()).await.unwrap();
+
+				let read = stream.read(&mut buf).await.unwrap();
+				if read == 0 {
+					panic!("oh no")
+				} else if buf.starts_with("250".as_bytes()) && buf.ends_with("\r\n".as_bytes()) {
+					return;
+				}
+			}
+
+			let command = client.push(String::from_utf8_lossy(&buf[..read]).as_ref());
+
+			if let Some(command) = command {
+				stream
+					.write_all(command.as_string().as_bytes())
+					.await
+					.unwrap();
 			}
 		}
 	}
