@@ -1,12 +1,11 @@
-use std::net::{TcpListener, TcpStream};
-
 use sail::Transaction;
-use smol::{
-	io::{self, AsyncReadExt, AsyncWriteExt},
-	Async,
-};
+use tokio::io;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
+use tokio::net::TcpStream;
+use tokio::net::TcpListener;
 
-pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
+pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 	let (mut transaction, inital_response) = Transaction::initiate();
 	stream
 		.write_all(inital_response.as_string().as_bytes())
@@ -39,16 +38,15 @@ pub async fn serve(mut stream: Async<TcpStream>) -> io::Result<()> {
 	Ok(())
 }
 
-fn main() {
-	smol::block_on(async {
-		let listener = Async::<TcpListener>::bind(([127, 0, 0, 1], 8000)).unwrap();
+#[tokio::main]
+async fn main() {
+	let listener = <TcpListener>::bind("127.0.0.1:8000").await.unwrap();
 
-		loop {
-			let (stream, clientaddr) = listener.accept().await.unwrap();
+	loop {
+		let (stream, clientaddr) = listener.accept().await.unwrap();
 
-			println!("connection from {}", clientaddr);
+		println!("connection from {}", clientaddr);
 
-			smol::spawn(async move { serve(stream).await.unwrap() }).detach();
-		}
-	});
+		serve(stream).await.unwrap();
+	}
 }
