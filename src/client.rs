@@ -1,4 +1,4 @@
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Client {
 	state: State,
 	reply: String,
@@ -8,6 +8,8 @@ pub struct Client {
 use std::collections::HashSet;
 use std::net::IpAddr;
 
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::TcpStream;
 use trust_dns_resolver::Resolver;
 
 use crate::command::Command;
@@ -15,22 +17,15 @@ use crate::message::Message;
 use crate::response::ResponseCode;
 
 impl Client {
-	pub fn initiate(
-		forward_paths: Vec<String>,
-		reverse_path: String,
-		data: Vec<String>,
-	) -> (Self, String) {
-		(
-			Self {
-				message: Message {
-					reverse_path,
-					forward_paths,
-					data,
-				},
-				..Default::default()
+	pub fn initiate(forward_paths: Vec<String>, reverse_path: String, data: Vec<String>) -> Self {
+		Self {
+			message: Message {
+				reverse_path,
+				forward_paths,
+				data,
 			},
-			Command::Ehlo("Sail".to_string()).as_string(),
-		)
+			..Default::default()
+		}
 	}
 	pub fn push(&mut self, reply: &str) -> Option<Command> {
 		self.reply.push_str(reply);
@@ -123,15 +118,15 @@ impl Client {
 		let mut paths_by_domain: Vec<(&str, Vec<String>)> = vec![];
 
 		for domain in domains {
-			paths_by_domain.push(
-				(domain,
+			paths_by_domain.push((
+				domain,
 				self.message
 					.forward_paths
 					.clone()
 					.into_iter()
 					.filter(|path| path.split_once('@').unwrap().1 == domain) //filter for paths to the current domain
-					.collect())
-			)
+					.collect(),
+			))
 		}
 
 		for (domain, paths) in paths_by_domain {
@@ -142,18 +137,52 @@ impl Client {
 			} else if let Some(address) = domain.strip_prefix("[") {
 				let address: IpAddr = address.strip_suffix("]").unwrap().parse().unwrap();
 				address
-			}
-			else if let Some(address) = Self::get_mx_record(domain) {
+			} else if let Some(address) = Self::get_mx_record(domain) {
 				address
 			} else {
 				unreachable!()
 			};
 
+			tokio::spawn(Self::send_to_ip(
+				address,
+				paths,
+				self.message.reverse_path.clone(),
+				self.message.data.clone(),
+			));
+
 			todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
 		}
 	}
+	async fn send_to_ip(addr: IpAddr, paths: Vec<String>, reverse_path: String, data: Vec<String>) {
+		let mut stream = TcpStream::connect(format!("{}{}", addr, "25"))
+			.await
+			.unwrap();
+		let mut client = Self::initiate(paths, reverse_path, data);
+
+		let mut buf = vec![0; 1024];
+
+		while !client.should_exit() {
+			let read = stream.read(&mut buf).await.unwrap();
+
+			// A zero sized read, this connection has died or been terminated by the server
+			if read == 0 {
+				println!("Connection unexpectedly closed by server");
+				return;
+
+				let command = client.push(String::from_utf8_lossy(&buf[..read]).as_ref());
+
+				if let Some(command) = command {
+					stream.write_all(command.as_string().as_bytes()).await.unwrap();
+				}
+			}
+		}
+	}
+	fn should_exit(&self) -> bool {
+		self.state == State::ShouldExit
+	}
 }
 
+#[derive(Clone, Copy, PartialEq)]
 enum State {
 	Initiated,
 	Greeted,
