@@ -28,7 +28,7 @@ pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 		}
 		println!("\n{}", String::from_utf8_lossy(&buf[..read]));*/
 
-		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref());
+		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref()).await;
 
 		if let Some(response) = response {
 			stream.write_all(response.as_string().as_bytes()).await?;

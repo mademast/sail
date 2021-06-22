@@ -19,7 +19,7 @@ impl Transaction {
 		)
 	}
 
-	pub fn push(&mut self, line: &str) -> Option<Response> {
+	pub async fn push(&mut self, line: &str) -> Option<Response> {
 		self.command.push_str(line);
 
 		// Return early if it's not a line
@@ -28,7 +28,7 @@ impl Transaction {
 		}
 
 		if self.state == State::LoadingData {
-			let resp = self.loading_data();
+			let resp = self.loading_data().await;
 			self.command.clear();
 
 			resp
@@ -44,10 +44,10 @@ impl Transaction {
 		self.state == State::Exit
 	}
 
-	fn loading_data(&mut self) -> Option<Response> {
+	async fn loading_data(&mut self) -> Option<Response> {
 		if self.command == ".\r\n" {
 			// Data is complete
-			Some(self.got_data())
+			Some(self.got_data().await)
 		//transparency to allow clients to send \r\n.\r\n without breaking SMTP
 		} else if self.command.starts_with('.') {
 			self.message.data.push(self.command[1..].to_string());
@@ -59,9 +59,9 @@ impl Transaction {
 	}
 
 	//TODO: Check that the data is valid! (rfc 5322)
-	fn got_data(&mut self) -> Response {
+	async fn got_data(&mut self) -> Response {
 		println!("{}", self.message.data.join("\r\n"));
-		Client::run(self.message.clone());
+		Client::run(self.message.clone()).await;
 		//todo: serialize into a file (serde, perhaps?) and pass off to the client process
 		//alternatively, pass into a thread that we spawn here to handle that. That might be the better option?
 

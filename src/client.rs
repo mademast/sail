@@ -107,7 +107,7 @@ impl Client {
 		mx_ip.iter().next()
 	}
 
-	pub fn run(message: Message) {
+	pub async fn run(message: Message) {
 		let domains: HashSet<&str> = message
 			.forward_paths
 			.iter()
@@ -142,12 +142,12 @@ impl Client {
 				unreachable!()
 			};
 
-			tokio::spawn(Self::send_to_ip(
+			Self::send_to_ip(
 				address,
 				paths,
 				message.reverse_path.clone(),
 				message.data.clone(),
-			));
+			).await;
 
 			todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
 		}
