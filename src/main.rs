@@ -47,6 +47,6 @@ async fn main() {
 
 		println!("connection from {}", clientaddr);
 
-		serve(stream).await.unwrap();
+		tokio::spawn(serve(stream));
 	}
 }
