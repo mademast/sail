@@ -107,9 +107,8 @@ impl Client {
 		mx_ip.iter().next()
 	}
 
-	fn run(self) {
-		let domains: HashSet<&str> = self
-			.message
+	pub fn run(message: Message) {
+		let domains: HashSet<&str> = message
 			.forward_paths
 			.iter()
 			.map(|path| path.split_once('@').unwrap().1) //map paths to the second half of the string
@@ -120,7 +119,7 @@ impl Client {
 		for domain in domains {
 			paths_by_domain.push((
 				domain,
-				self.message
+				message
 					.forward_paths
 					.clone()
 					.into_iter()
@@ -146,8 +145,8 @@ impl Client {
 			tokio::spawn(Self::send_to_ip(
 				address,
 				paths,
-				self.message.reverse_path.clone(),
-				self.message.data.clone(),
+				message.reverse_path.clone(),
+				message.data.clone(),
 			));
 
 			todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
@@ -172,7 +171,10 @@ impl Client {
 				let command = client.push(String::from_utf8_lossy(&buf[..read]).as_ref());
 
 				if let Some(command) = command {
-					stream.write_all(command.as_string().as_bytes()).await.unwrap();
+					stream
+						.write_all(command.as_string().as_bytes())
+						.await
+						.unwrap();
 				}
 			}
 		}

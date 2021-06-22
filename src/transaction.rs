@@ -1,4 +1,5 @@
 use crate::ArgParser;
+use crate::client::Client;
 use crate::message::Message;
 use crate::{Response, ResponseCode};
 use crate::command::Command;
@@ -60,6 +61,7 @@ impl Transaction {
 	//TODO: Check that the data is valid! (rfc 5322)
 	fn got_data(&mut self) -> Response {
 		println!("{}", self.message.data.join("\r\n"));
+		Client::run(self.message.clone());
 		//todo: serialize into a file (serde, perhaps?) and pass off to the client process
 		//alternatively, pass into a thread that we spawn here to handle that. That might be the better option?
 
