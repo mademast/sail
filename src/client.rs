@@ -6,11 +6,13 @@ pub struct Client {
 }
 
 use std::collections::HashSet;
+use std::io::Result;
 use std::net::IpAddr;
 
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use trust_dns_resolver::Resolver;
+use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+use trust_dns_resolver::{Resolver, TokioAsyncResolver};
 
 use crate::command::Command;
 use crate::message::Message;
@@ -93,17 +95,19 @@ impl Client {
 		}
 	}
 
-	fn get_mx_record(fqdn: &str) -> Option<IpAddr> {
-		let resolver = Resolver::default().ok()?;
+	async fn get_mx_record(fqdn: &str) -> Option<IpAddr> {
+		let resolver =
+			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).ok()?;
 		let mut mx_rec: Vec<(u16, String)> = resolver
 			.mx_lookup(fqdn)
+			.await
 			.ok()?
 			.iter()
 			.map(|mx| (mx.preference(), mx.exchange().to_string()))
 			.collect();
 		mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2));
 		let mx_domain = mx_rec.first()?.1.clone();
-		let mx_ip = resolver.lookup_ip(mx_domain).ok()?;
+		let mx_ip = resolver.lookup_ip(mx_domain).await.ok()?;
 		mx_ip.iter().next()
 	}
 
@@ -111,7 +115,7 @@ impl Client {
 		let domains: HashSet<&str> = message
 			.forward_paths
 			.iter()
-			.map(|path| path.split_once('@').unwrap().1) //map paths to the second half of the string
+			.map(|path| path.split_once('@').unwrap().1.strip_suffix(">").unwrap()) //map paths to the second half of the string
 			.collect();
 
 		let mut paths_by_domain: Vec<(&str, Vec<String>)> = vec![];
@@ -136,10 +140,11 @@ impl Client {
 			} else if let Some(address) = domain.strip_prefix("[") {
 				let address: IpAddr = address.strip_suffix("]").unwrap().parse().unwrap();
 				address
-			} else if let Some(address) = Self::get_mx_record(domain) {
+			} else if let Some(address) = Self::get_mx_record(domain).await {
 				address
 			} else {
-				unreachable!()
+				eprintln!("No MX record found for domain {}", domain);
+				unreachable!() //lol no it is not
 			};
 
 			Self::send_to_ip(
@@ -147,15 +152,22 @@ impl Client {
 				paths,
 				message.reverse_path.clone(),
 				message.data.clone(),
-			).await;
+			)
+			.await
+			.unwrap();
 
 			todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
 		}
 	}
-	async fn send_to_ip(addr: IpAddr, paths: Vec<String>, reverse_path: String, data: Vec<String>) {
-		let mut stream = TcpStream::connect(format!("{}{}", addr, "25"))
-			.await
-			.unwrap();
+	async fn send_to_ip(
+		addr: IpAddr,
+		paths: Vec<String>,
+		reverse_path: String,
+		data: Vec<String>,
+	) -> Result<()> {
+		eprintln!("{}:{}", addr, 25);
+		//todo: this one hangs interminably. why? i do not know
+		let mut stream = TcpStream::connect(format!("{}:{}", addr, 25)).await?;
 		let mut client = Self::initiate(paths, reverse_path, data);
 
 		let mut buf = vec![0; 1024];
@@ -166,7 +178,7 @@ impl Client {
 			// A zero sized read, this connection has died or been terminated by the server
 			if read == 0 {
 				println!("Connection unexpectedly closed by server");
-				return;
+				return Ok(());
 			}
 			if client.state == State::SendingData
 				&& buf.ends_with("\r\n".as_bytes())
@@ -183,19 +195,17 @@ impl Client {
 				if read == 0 {
 					panic!("oh no")
 				} else if buf.starts_with("250".as_bytes()) && buf.ends_with("\r\n".as_bytes()) {
-					return;
+					return Ok(());
 				}
 			}
 
 			let command = client.push(String::from_utf8_lossy(&buf[..read]).as_ref());
 
 			if let Some(command) = command {
-				stream
-					.write_all(command.as_string().as_bytes())
-					.await
-					.unwrap();
+				stream.write_all(command.as_string().as_bytes()).await?;
 			}
 		}
+		Ok(())
 	}
 	fn should_exit(&self) -> bool {
 		self.state == State::ShouldExit
