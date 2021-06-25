@@ -75,7 +75,7 @@ impl ArgParser {
 	}
 
 	pub fn validate_forward_path(forward: &str) -> bool {
-		Self::validate_path(forward)
+		forward.to_lowercase() == "<postmaster>" || Self::validate_path(forward)
 	}
 }
 
