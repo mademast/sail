@@ -1,14 +1,14 @@
-use crate::ArgParser;
 use crate::client::Client;
-use crate::message::Message;
-use crate::{Response, ResponseCode};
 use crate::command::Command;
+use crate::message::Message;
+use crate::ArgParser;
+use crate::{Response, ResponseCode};
 
 #[derive(Default)]
 pub struct Transaction {
 	state: State,
 	command: String,
-	message: Message
+	message: Message,
 }
 
 impl Transaction {
@@ -72,7 +72,8 @@ impl Transaction {
 	}
 
 	fn run_command(&mut self) -> Response {
-		let command = Self::parse_command(&self.command.trim_end());
+		let command = Command::parse(&self.command.trim_end());
+
 		match command {
 			Command::Helo(client_domain) => self.helo(&client_domain),
 			Command::Ehlo(client_domain) => self.ehlo(&client_domain),
@@ -201,24 +202,6 @@ impl Transaction {
 			ResponseCode::CommandNotImplemented,
 			"Command not implemented",
 		)
-	}
-
-	fn parse_command(command: &str) -> Command {
-		let command = command.split_once(' ').unwrap_or((command, ""));
-		match (command.0.to_ascii_uppercase().as_str(), command.1) {
-			("HELO", client_domain) => Command::Helo(client_domain.trim().to_owned()),
-			("EHLO", client_domain) => Command::Ehlo(client_domain.trim().to_owned()),
-			("MAIL", reverse_path) => Command::Mail(reverse_path.trim().to_owned()),
-			("RCPT", forward_path) => Command::Rcpt(forward_path.trim().to_owned()),
-			("DATA", "") => Command::Data,
-			("RSET", "") => Command::Rset,
-			("VRFY", target) => Command::Vrfy(target.trim().to_owned()),
-			("EXPN", list) => Command::Expn(list.trim().to_owned()),
-			("HELP", command) => Command::Help(command.trim().to_owned()),
-			("NOOP", _) => Command::Noop,
-			("QUIT", "") => Command::Quit,
-			_ => Command::Invalid,
-		}
 	}
 
 	fn bad_command() -> Response {
