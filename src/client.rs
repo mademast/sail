@@ -111,6 +111,14 @@ impl Client {
 		mx_ip.iter().next()
 	}
 
+	async fn get_ip(fqdn: &str) -> Option<IpAddr> {
+		let resolver =
+			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).ok()?;
+
+		let ip = resolver.lookup_ip(fqdn).await.ok()?;
+		ip.iter().next()
+	}
+
 	pub async fn run(message: Message) {
 		let domains: HashSet<&str> = message
 			.forward_paths
@@ -142,8 +150,10 @@ impl Client {
 				address
 			} else if let Some(address) = Self::get_mx_record(domain).await {
 				address
+			} else if let Some(address) = Self::get_ip(domain).await {
+				address
 			} else {
-				eprintln!("No MX record found for domain {}", domain);
+				eprintln!("No record at all found for domain {}", domain);
 				unreachable!() //lol no it is not
 			};
 

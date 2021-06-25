@@ -2,8 +2,8 @@ use sail::Transaction;
 use tokio::io;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
-use tokio::net::TcpStream;
 use tokio::net::TcpListener;
+use tokio::net::TcpStream;
 
 pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 	let (mut transaction, inital_response) = Transaction::initiate();
@@ -23,12 +23,9 @@ pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 			return Ok(());
 		}
 
-		/*for byte in buf.iter().take(read) {
-			print!("{:02X} ", byte);
-		}
-		println!("\n{}", String::from_utf8_lossy(&buf[..read]));*/
-
-		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref()).await;
+		let response = transaction
+			.push(String::from_utf8_lossy(&buf[..read]).as_ref())
+			.await;
 
 		if let Some(response) = response {
 			stream.write_all(response.as_string().as_bytes()).await?;
