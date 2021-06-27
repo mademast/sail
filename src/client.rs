@@ -12,7 +12,7 @@ use std::net::IpAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
-use trust_dns_resolver::{Resolver, TokioAsyncResolver};
+use trust_dns_resolver::TokioAsyncResolver;
 
 use crate::command::Command;
 use crate::message::Message;
@@ -154,7 +154,7 @@ impl Client {
 				address
 			} else {
 				eprintln!("No record at all found for domain {}", domain);
-				unreachable!() //lol no it is not
+				todo!() // this needs to be properly handled.
 			};
 
 			Self::send_to_ip(
@@ -164,10 +164,11 @@ impl Client {
 				message.data.clone(),
 			)
 			.await
-			.unwrap();
-
-			todo!() //todo: genny help we need to make tcp connections or something this is probably not the place to do it tho
+			.unwrap(); //TODO: handle these results and inform user about them
 		}
+
+		todo!() //TODO: send 250 if the message sent properly, otherwise a 5xx error or whatever the remote server sent
+		 //alternatively, send 250 immediately, then construct an undeliverable message
 	}
 	async fn send_to_ip(
 		addr: IpAddr,
@@ -175,6 +176,7 @@ impl Client {
 		reverse_path: String,
 		data: Vec<String>,
 	) -> Result<()> {
+		//TODO: use our own errors? send box dyn error?
 		eprintln!("{}:{}", addr, 25);
 		//todo: this one hangs interminably. why? i do not know
 		let mut stream = TcpStream::connect(format!("{}:{}", addr, 25)).await?;
