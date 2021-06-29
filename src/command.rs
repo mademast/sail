@@ -108,22 +108,45 @@ mod test {
 		]
 	}
 
+	fn domains() -> Vec<String> {
+		let mut domains = get_test_data("valid_domains.txt");
+		let mut ips = get_test_data("valid_ip.txt");
+
+		domains.append(&mut ips);
+
+		domains
+	}
+
 	#[test]
-	fn helo() {
-		let domains = get_test_data("valid_domains.txt");
-		for helo in case_modifier("helo") {
-			for domain in &domains {
+	fn helo_ehlo() {
+		let domains = domains();
+		let helos = case_modifier("helo");
+		let ehlos = case_modifier("ehlo");
+		for domain in domains {
+			for helo in &helos {
 				Command::from_str(&format!("{} {}", helo, domain)).unwrap();
+			}
+			for ehlo in &ehlos {
+				Command::from_str(&format!("{} {}", ehlo, domain)).unwrap();
 			}
 		}
 	}
-	
+
 	#[test]
-	fn ehlo() {
-		let domains = get_test_data("valid_domains.txt");
-		for ehlo in case_modifier("ehlo") {
-			for domain in &domains {
-				Command::from_str(&format!("{} {}", ehlo, domain)).unwrap();
+	fn mail_and_rcpt() {
+		let domains = domains();
+		let local_parts = get_test_data("valid_localparts.txt");
+		let mails = case_modifier("MAIL FROM:");
+		let rcpts = case_modifier("RCPT TO:");
+
+		for domain in domains {
+			for local_part in &local_parts {
+				for mail in &mails {
+					Command::from_str(&format!("{}<{}@{}>", mail, local_part, domain)).unwrap();
+				}
+				for rcpt in &rcpts {
+					Command::from_str(&format!("{}<{}@{}>", rcpt, local_part, domain)).unwrap();
+				}
 			}
 		}
 	}
