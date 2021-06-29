@@ -1,0 +1,9 @@
+domain
+0domain
+domain0
+0-domain
+domain-0
+www.example.com
+gmail.com
+genbyte.dev
+nove.dev

@@ -1,0 +1,12 @@
+""
+user
+user24234
+user.user
+user23423.user
+user.user.user
+"user"
+"user user"
+"user \" user"
+"user.user"
+"user73 456"
+"user %#W$@"
