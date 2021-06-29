@@ -144,7 +144,7 @@ mod test {
 		let locals = valid_localparts();
 
 		for domain in domains {
-			for local in locals.iter() {
+			for local in &locals {
 				assert!(
 					Path::from_str(&format!("<{}@{}>", local, domain)).is_ok(),
 					"failed on {}",
@@ -171,22 +171,22 @@ mod test {
 		};
 
 		// Should fail if the domain is bad but local good
-		for domain in invalid_domains.iter() {
-			for local in valid_locals.iter() {
+		for domain in &invalid_domains {
+			for local in &valid_locals {
 				test(local, domain)
 			}
 		}
 
 		// Should fail if the local is bad but domian good
-		for domain in valid_domains.iter() {
-			for local in invalid_locals.iter() {
+		for domain in &valid_domains {
+			for local in &invalid_locals {
 				test(local, domain)
 			}
 		}
 
 		// and if they're both bad
-		for domain in invalid_domains.iter() {
-			for local in invalid_locals.iter() {
+		for domain in &invalid_domains {
+			for local in &invalid_locals {
 				test(local, domain)
 			}
 		}
@@ -199,14 +199,11 @@ mod test {
 
 	#[test]
 	fn forward_path_postmaster() {
-		let domains = valid_domains();
 		let postmasters = vec!["postmaster", "POSTMASTER", "Postmaster", "PoStMaStEr"];
 
-		for domain in domains {
-			for postmaster in postmasters.iter() {
-				let path = format!("<{}@{}>", postmaster, domain);
-				assert!(ForwardPath::from_str(&path).is_ok(), "failed on {}", path)
-			}
+		for postmaster in postmasters {
+			let path = format!("<{}>", postmaster);
+			assert!(ForwardPath::from_str(&path).is_ok(), "failed on {}", path)
 		}
 	}
 }
