@@ -1,9 +1,9 @@
 use sail::Transaction;
-use tokio::io;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpListener;
-use tokio::net::TcpStream;
+use tokio::{
+	io::{self, AsyncReadExt, AsyncWriteExt},
+	net::TcpListener,
+	net::TcpStream,
+};
 
 pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 	let (mut transaction, inital_response) = Transaction::initiate();
@@ -38,11 +38,10 @@ pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 #[tokio::main]
 async fn main() {
 	let port: u16 = std::env::args()
-		.skip(1)
-		.next()
+		.nth(1)
 		.unwrap_or("8000".into())
 		.parse()
-		.unwrap();
+		.unwrap_or(8000);
 	let listener = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
 
 	loop {
