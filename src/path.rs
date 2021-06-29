@@ -93,9 +93,18 @@ impl Path {
 impl FromStr for ForwardPath {
 	type Err = ParsePathError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		//todo: properly validate source routing syntax. <asdpostmaster> shouldn't be valid. we should check domains, etc.
-		if s.strip_prefix('<').is_some() && s.to_ascii_lowercase().ends_with("postmaster>") {
+		if s.to_ascii_lowercase() == "<postmaster>" {
 			Ok(Self::Postmaster)
+		} else if let Some(stripped) = s.strip_suffix(":postmaster>") {
+			if let Some(stripped) = stripped.strip_prefix("<@") {
+				let domains = stripped.split(",@");
+				for domain in domains {
+					Domain::from_str(domain)?;
+				}
+				Ok(Self::Postmaster)
+			} else {
+				Err(ParsePathError::InvalidAdlSyntax)
+			}
 		} else {
 			Ok(Self::Regular(Path::from_str(s)?))
 		}
@@ -121,6 +130,8 @@ pub enum ParsePathError {
 	NoAtSign,
 	#[error("ADL syntax without colon")]
 	AdlWithoutColon,
+	#[error("Invalid ADL syntax")]
+	InvalidAdlSyntax,
 	#[error("invalid local part")]
 	InvalidLocalPart,
 	#[error("invalid domain")]
