@@ -110,12 +110,25 @@ pub mod test {
 		]
 	}
 
+	pub fn invalid_localparts() -> Vec<String> {
+		vec![
+			String::from(""),
+			String::from("\""),         //one quote
+			String::from(".user"),      //leading dot
+			String::from("user user"),  //space without quote string
+			String::from("@user"),      //@ in dot string
+			String::from("user."),      //trailing dot
+			String::from("\"\"\""),     //triple quote
+			String::from("\"user\\\""), //single backslash
+		]
+	}
+
 	#[test]
 	pub fn domain_pass() {
 		let strings = valid_domains();
 
 		for domain in strings {
-			assert!(Domain::from_str(&domain).is_ok())
+			assert!(Domain::from_str(&domain).is_ok(), "failed on {}", domain)
 		}
 	}
 
@@ -125,7 +138,7 @@ pub mod test {
 
 		for domain in strings {
 			println!("{}", domain);
-			assert!(Domain::from_str(&domain).is_err())
+			assert!(Domain::from_str(&domain).is_err(), "passed on {}", domain)
 		}
 	}
 
@@ -136,7 +149,11 @@ pub mod test {
 
 		for domain in domains {
 			for local in locals.iter() {
-				assert!(Path::from_str(&format!("<{}@{}>", local, domain)).is_ok());
+				assert!(
+					Path::from_str(&format!("<{}@{}>", local, domain)).is_ok(),
+					"failed on {}",
+					format!("<{}@{}>", local, domain)
+				);
 			}
 		}
 	}
@@ -144,33 +161,37 @@ pub mod test {
 	#[test]
 	pub fn path_fail() {
 		let invalid_domains = invalid_domains();
-		let invalid_locals: Vec<String> = vec![];
+		let invalid_locals = invalid_localparts();
 
 		let valid_domains = valid_domains();
 		let valid_locals = valid_localparts();
 
+		let test = |local: &String, domain: &String| {
+			assert!(
+				Path::from_str(&format!("<{}@{}>", local, domain)).is_err(),
+				"passed on {}",
+				format!("<{}@{}>", local, domain)
+			);
+		};
+
 		// Should fail if the domain is bad but local good
 		for domain in invalid_domains.iter() {
 			for local in valid_locals.iter() {
-				assert!(
-					Path::from_str(&format!("<{}@{}>", local, domain)).is_err(),
-					"passed on {}",
-					&format!("<{}@{}>", local, domain)
-				);
+				test(local, domain)
 			}
 		}
 
 		// Should fail if the local is bad but domian good
-		for domain in valid_domains {
+		for domain in valid_domains.iter() {
 			for local in invalid_locals.iter() {
-				assert!(Path::from_str(&format!("<{}@{}>", local, domain)).is_err());
+				test(local, domain)
 			}
 		}
 
 		// and if they're both bad
-		for domain in invalid_domains {
+		for domain in invalid_domains.iter() {
 			for local in invalid_locals.iter() {
-				assert!(Path::from_str(&format!("<{}@{}>", local, domain)).is_err());
+				test(local, domain)
 			}
 		}
 	}
