@@ -5,18 +5,17 @@ pub struct Client {
 	message: Message,
 }
 
-use std::collections::HashSet;
-use std::io::Result;
-use std::net::IpAddr;
+use std::{collections::HashSet, net::IpAddr};
+use tokio::{
+	io::{AsyncReadExt, AsyncWriteExt},
+	net::TcpStream,
+};
+use trust_dns_resolver::{
+	config::{ResolverConfig, ResolverOpts},
+	TokioAsyncResolver,
+};
 
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tokio::net::TcpStream;
-use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
-use trust_dns_resolver::TokioAsyncResolver;
-
-use crate::command::Command;
-use crate::message::Message;
-use crate::response::ResponseCode;
+use crate::{command::Command, message::Message, response::ResponseCode};
 
 impl Client {
 	pub fn initiate(forward_paths: Vec<String>, reverse_path: String, data: Vec<String>) -> Self {
@@ -175,7 +174,7 @@ impl Client {
 		paths: Vec<String>,
 		reverse_path: String,
 		data: Vec<String>,
-	) -> Result<()> {
+	) -> std::io::Result<()> {
 		//TODO: use our own errors? send box dyn error?
 		eprintln!("{}:{}", addr, 25);
 		//todo: this one hangs interminably. why? i do not know
