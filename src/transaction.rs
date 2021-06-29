@@ -74,7 +74,7 @@ impl Transaction {
 	}
 
 	fn run_command(&mut self) -> Response {
-		let command = Command::from_str(&self.command.trim_end()); //todo: TERRIBLE IDEA; DO NOT LEAVE THIS HERE PLEASE
+		let command = Command::from_str(&self.command.trim_end());
 
 		match command {
 			Ok(command) => match command {

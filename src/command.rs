@@ -37,7 +37,6 @@ impl std::fmt::Display for Command {
 	}
 }
 
-//TODO: TO: and FROM: sections of RCPT and MAIL commands. this breaks everything.
 impl std::str::FromStr for Command {
 	type Err = ParseCommandError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -46,10 +45,22 @@ impl std::str::FromStr for Command {
 			("HELO", client_domain) => Ok(Command::Helo(Domain::from_str(client_domain.trim())?)),
 			("EHLO", client_domain) => Ok(Command::Ehlo(Domain::from_str(client_domain.trim())?)),
 			("MAIL", reverse_path) => {
-				Ok(Command::Mail(ReversePath::from_str(reverse_path.trim())?))
+				let reverse_path = reverse_path.split_once(' ').unwrap_or(("", ""));
+				match reverse_path {
+					("FROM:", reverse_path) => {
+						Ok(Command::Mail(ReversePath::from_str(reverse_path.trim())?))
+					}
+					_ => Err(ParseCommandError::InvalidCommand),
+				}
 			}
 			("RCPT", forward_path) => {
-				Ok(Command::Rcpt(ForwardPath::from_str(forward_path.trim())?))
+				let forward_path = forward_path.split_once(' ').unwrap_or(("", ""));
+				match forward_path {
+					("FROM:", forward_path) => {
+						Ok(Command::Rcpt(ForwardPath::from_str(forward_path.trim())?))
+					}
+					_ => Err(ParseCommandError::InvalidCommand),
+				}
 			}
 			("DATA", "") => Ok(Command::Data),
 			("RSET", "") => Ok(Command::Rset),
