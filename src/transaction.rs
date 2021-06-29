@@ -1,7 +1,7 @@
+use crate::args::Validator;
 use crate::client::Client;
 use crate::command::Command;
 use crate::message::Message;
-use crate::ArgParser;
 use crate::{Response, ResponseCode};
 
 #[derive(Default)]
@@ -96,7 +96,7 @@ impl Transaction {
 		// 4.1.4 does not say the same thing about HELO, so we check the state
 		match self.state {
 			State::Initiated => {
-				if ArgParser::validate_domain(client_domain) {
+				if Validator::validate_domain(client_domain) {
 					self.state = State::Greeted;
 
 					Response::with_message(
@@ -113,7 +113,7 @@ impl Transaction {
 
 	fn ehlo(&mut self, client_domain: &str) -> Response {
 		//TODO: Check for address literals, too
-		if ArgParser::validate_domain(client_domain) {
+		if Validator::validate_domain(client_domain) {
 			// Section 4.1.4 says that EHLO may appear later in the session, and
 			// that the state should be reset and the buffers cleared (like RSET)
 			// So here we just call rset and set the state later.
@@ -149,7 +149,7 @@ impl Transaction {
 	fn mail(&mut self, reverse_path: &str) -> Response {
 		let reverse_path = &reverse_path[5..];
 
-		if self.state == State::Greeted && ArgParser::validate_reverse_path(reverse_path) {
+		if self.state == State::Greeted && Validator::validate_reverse_path(reverse_path) {
 			self.state = State::GotReversePath;
 			self.message.reverse_path = reverse_path.to_string();
 
@@ -165,7 +165,7 @@ impl Transaction {
 		let forward_path = &forward_path[3..];
 
 		if (self.state == State::GotReversePath || self.state == State::GotForwardPath)
-			&& ArgParser::validate_forward_path(forward_path)
+			&& Validator::validate_forward_path(forward_path)
 		{
 			self.state = State::GotForwardPath;
 			self.message.forward_paths.push(forward_path.to_string());

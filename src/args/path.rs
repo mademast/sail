@@ -1,14 +1,11 @@
-use crate::{
-	argparser::ArgParser,
-	domain::{self, Domain},
-};
+use crate::args::{Domain, ParseDomainError, Validator};
 use std::{
 	fmt::{Display, Formatter},
 	str::FromStr,
 };
 use thiserror::Error;
 
-struct Path {
+pub struct Path {
 	local_part: String,
 	domain: Domain,
 }
@@ -21,6 +18,26 @@ pub enum ForwardPath {
 pub enum ReversePath {
 	Null,
 	Regular(Path),
+}
+
+impl Path {
+	fn parse_naked_path(naked: &str) -> Result<Self, ParsePathError> {
+		let splits = naked.rsplit_once("@");
+
+		if let Some((local_part, domain)) = splits {
+			// Check if it's an address literal first, and if it isn't, check if it's a domain
+			if Validator::validate_local_part(local_part) {
+				Ok(Self {
+					local_part: local_part.to_string(),
+					domain: Domain::from_str(domain)?,
+				})
+			} else {
+				Err(ParsePathError::InvalidLocalPart)
+			}
+		} else {
+			Err(ParsePathError::NoAtSign)
+		}
+	}
 }
 
 impl Display for Path {
@@ -55,6 +72,7 @@ impl FromStr for Path {
 					Self::parse_naked_path(stripped)
 				} else {
 					let splits: Vec<&str> = stripped.splitn(2, ':').collect();
+
 					if splits.len() != 2 {
 						Err(ParsePathError::AdlWithoutColon)
 					} else {
@@ -66,26 +84,6 @@ impl FromStr for Path {
 			}
 		} else {
 			Err(ParsePathError::Brackets)
-		}
-	}
-}
-
-impl Path {
-	fn parse_naked_path(stripped: &str) -> Result<Self, ParsePathError> {
-		let splits = stripped.rsplit_once("@");
-
-		if let Some((local_part, domain)) = splits {
-			// Check if it's an address literal first, and if it isn't, check if it's a domain
-			if ArgParser::validate_local_part(local_part) {
-				Ok(Self {
-					local_part: local_part.to_string(),
-					domain: Domain::from_str(domain)?,
-				})
-			} else {
-				Err(ParsePathError::InvalidLocalPart)
-			}
-		} else {
-			Err(ParsePathError::NoAtSign)
 		}
 	}
 }
@@ -135,5 +133,5 @@ pub enum ParsePathError {
 	#[error("invalid local part")]
 	InvalidLocalPart,
 	#[error("invalid domain")]
-	InvalidDomain(#[from] domain::ParseDomainError),
+	InvalidDomain(#[from] ParseDomainError),
 }
