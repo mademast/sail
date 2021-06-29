@@ -1,6 +1,10 @@
-use std::{fmt::Display, net::{AddrParseError, IpAddr}, str::FromStr};
+use crate::args::Validator;
+use std::{
+	fmt::Display,
+	net::{AddrParseError, IpAddr},
+	str::FromStr,
+};
 use thiserror::Error;
-use crate::ArgParser;
 
 pub enum Domain {
 	FQDN(String),
@@ -38,7 +42,7 @@ impl FromStr for Domain {
 			} else {
 				Err(ParseDomainError::Brackets)
 			}
-		} else if ArgParser::validate_domain(s){
+		} else if Validator::validate_domain(s) {
 			Ok(Self::FQDN(s.to_string()))
 		} else {
 			Err(ParseDomainError::InvalidDomain)

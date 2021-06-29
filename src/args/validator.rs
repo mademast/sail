@@ -1,19 +1,20 @@
-use std::{
-	net::{Ipv4Addr, Ipv6Addr},
-	str::FromStr,
-};
+use std::str::FromStr;
 
 use pest::Parser;
 use pest_derive::*;
 
-use crate::domain::Domain;
+use crate::args::Domain;
 
 #[derive(Parser)]
 #[grammar = "smtp_grammar.pest"]
 pub struct GrammarParser;
 
-pub struct ArgParser;
-impl ArgParser {
+pub struct Validator;
+impl Validator {
+	pub fn validate_local_part(local: &str) -> bool {
+		GrammarParser::parse(Rule::validate_local_part, local).is_ok()
+	}
+
 	pub fn validate_domain(domain: &str) -> bool {
 		GrammarParser::parse(Rule::validate_domain, domain).is_ok()
 	}
@@ -25,15 +26,10 @@ impl ArgParser {
 
 		if let Some((localpart, domain)) = splits {
 			// Check if it's an address literal first, and if it isn't, check if it's a domain
-			Self::validate_local_part(localpart)
-				&& (Domain::from_str(domain)).is_ok()
+			Self::validate_local_part(localpart) && (Domain::from_str(domain)).is_ok()
 		} else {
 			false
 		}
-	}
-
-	pub fn validate_local_part(local_part: &str) -> bool {
-		GrammarParser::parse(Rule::validate_local_part, local_part).is_ok()
 	}
 
 	pub fn validate_path(path: &str) -> bool {
@@ -112,8 +108,8 @@ mod test {
 		// These should all pass on their own
 		for name in should_pass {
 			assert!(
-				ArgParser::validate_domain(name),
-				"ArgParser::validate_domain() failed on {}",
+				Validator::validate_domain(name),
+				"Validator::validate_domain() failed on {}",
 				name
 			)
 		}
@@ -123,8 +119,8 @@ mod test {
 			for name2 in should_pass {
 				let catname = format!("{}.{}", name, name2);
 				assert!(
-					ArgParser::validate_domain(&catname),
-					"ArgParser::validate_domain() failed on {}",
+					Validator::validate_domain(&catname),
+					"Validator::validate_domain() failed on {}",
 					catname
 				)
 			}
@@ -134,29 +130,29 @@ mod test {
 		for name in should_pass {
 			let fmtname = format!(".{}", name);
 			assert!(
-				!ArgParser::validate_domain(&fmtname),
-				"ArgParser::validate_domain() succeeded on {}",
+				!Validator::validate_domain(&fmtname),
+				"Validator::validate_domain() succeeded on {}",
 				fmtname
 			);
 
 			let fmtname = format!("{}.", name);
 			assert!(
-				!ArgParser::validate_domain(&fmtname),
-				"ArgParser::validate_domain() succeeded on {}",
+				!Validator::validate_domain(&fmtname),
+				"Validator::validate_domain() succeeded on {}",
 				fmtname
 			);
 
 			let fmtname = format!("-{}", name);
 			assert!(
-				!ArgParser::validate_domain(&fmtname),
-				"ArgParser::validate_domain() succeeded on {}",
+				!Validator::validate_domain(&fmtname),
+				"Validator::validate_domain() succeeded on {}",
 				fmtname
 			);
 
 			let fmtname = format!("{}-", name);
 			assert!(
-				!ArgParser::validate_domain(&fmtname),
-				"ArgParser::validate_domain() succeeded on {}",
+				!Validator::validate_domain(&fmtname),
+				"Validator::validate_domain() succeeded on {}",
 				fmtname
 			);
 		}
@@ -171,8 +167,8 @@ mod test {
 			for local in &locals {
 				let fmtname = format!("{}@{}", local, domain);
 				assert!(
-					ArgParser::validate_mailbox(&fmtname),
-					"ArgParser::validate_mailbox() failed on {}",
+					Validator::validate_mailbox(&fmtname),
+					"Validator::validate_mailbox() failed on {}",
 					fmtname
 				)
 			}
@@ -181,7 +177,7 @@ mod test {
 		//TODO: Write failing tests
 	}
 
-	//TODO: Write tests for ArgParser::validate_address_literal
+	//TODO: Write tests for Validator::validate_address_literal
 
-	//TODO: Write tests for ArgParser::validate_path
+	//TODO: Write tests for Validator::validate_path
 }
