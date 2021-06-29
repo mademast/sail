@@ -1,9 +1,9 @@
 use sail::Transaction;
-use tokio::io;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncWriteExt;
-use tokio::net::TcpListener;
-use tokio::net::TcpStream;
+use tokio::{
+	io::{self, AsyncReadExt, AsyncWriteExt},
+	net::TcpListener,
+	net::TcpStream,
+};
 
 pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 	let (mut transaction, inital_response) = Transaction::initiate();
