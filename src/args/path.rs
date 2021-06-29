@@ -5,16 +5,19 @@ use std::{
 };
 use thiserror::Error;
 
+#[derive(Clone)]
 pub struct Path {
-	local_part: String,
-	domain: Domain,
+	pub local_part: String,
+	pub domain: Domain,
 }
 
+#[derive(Clone)]
 pub enum ForwardPath {
 	Postmaster,
 	Regular(Path),
 }
 
+#[derive(Clone)]
 pub enum ReversePath {
 	Null,
 	Regular(Path),
@@ -120,6 +123,17 @@ impl FromStr for ReversePath {
 		} else {
 			Ok(Self::Regular(Path::from_str(s)?))
 		}
+	}
+}
+
+impl Default for ReversePath {
+	fn default() -> Self {
+		Self::Null
+	}
+}
+impl Default for ForwardPath {
+	fn default() -> Self {
+		Self::Postmaster
 	}
 }
 

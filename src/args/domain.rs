@@ -6,6 +6,7 @@ use std::{
 };
 use thiserror::Error;
 
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum Domain {
 	FQDN(String),
 	Literal(IpAddr),

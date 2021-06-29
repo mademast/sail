@@ -1,4 +1,6 @@
-use crate::args::Validator;
+use std::str::FromStr;
+
+use crate::args::{Domain, ForwardPath, ReversePath, Validator};
 use crate::client::Client;
 use crate::command::Command;
 use crate::message::Message;
@@ -72,60 +74,58 @@ impl Transaction {
 	}
 
 	fn run_command(&mut self) -> Response {
-		let command = Command::parse(&self.command.trim_end());
+		let command = Command::from_str(&self.command.trim_end()); //todo: TERRIBLE IDEA; DO NOT LEAVE THIS HERE PLEASE
 
 		match command {
-			Command::Helo(client_domain) => self.helo(&client_domain),
-			Command::Ehlo(client_domain) => self.ehlo(&client_domain),
-			Command::Mail(reverse_path) => self.mail(&reverse_path),
-			Command::Rcpt(forward_path) => self.rcpt(&forward_path),
-			Command::Data => self.data(),
-			Command::Rset => self.rset(),
-			Command::Vrfy(_) => todo!(),
-			Command::Expn(_) => Self::not_implemented(),
-			Command::Help(_) => {
-				Response::with_message(ResponseCode::HelpMessage, "Please review RFC 5321")
-			}
-			Command::Noop => Response::with_message(ResponseCode::Okay, "Okay"),
-			Command::Quit => self.quit(),
-			Command::Invalid => Self::syntax_error(),
+			Ok(command) => match command {
+				Command::Helo(client_domain) => self.helo(&client_domain),
+				Command::Ehlo(client_domain) => self.ehlo(&client_domain),
+				Command::Mail(reverse_path) => self.mail(&reverse_path),
+				Command::Rcpt(forward_path) => self.rcpt(&forward_path),
+				Command::Data => self.data(),
+				Command::Rset => self.rset(),
+				Command::Vrfy(_) => todo!(),
+				Command::Expn(_) => Self::not_implemented(),
+				Command::Help(_) => {
+					Response::with_message(ResponseCode::HelpMessage, "Please review RFC 5321")
+				}
+				Command::Noop => Response::with_message(ResponseCode::Okay, "Okay"),
+				Command::Quit => self.quit(),
+			},
+			Err(err) => match err {
+				crate::command::ParseCommandError::InvalidCommand => Self::syntax_error(),
+				crate::command::ParseCommandError::InvalidPath(_) => {
+					Response::with_message(ResponseCode::InvalidParameters, "Bad path")
+				}
+				crate::command::ParseCommandError::InvalidDomain(err) => {
+					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
+				}
+			},
 		}
 	}
 
-	fn helo(&mut self, client_domain: &str) -> Response {
+	fn helo(&mut self, client_domain: &Domain) -> Response {
 		// 4.1.4 does not say the same thing about HELO, so we check the state
 		match self.state {
 			State::Initiated => {
-				if Validator::validate_domain(client_domain) {
-					self.state = State::Greeted;
+				self.state = State::Greeted;
 
-					Response::with_message(
-						ResponseCode::Okay,
-						format!("sail Hello {}", client_domain),
-					)
-				} else {
-					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
-				}
+				Response::with_message(ResponseCode::Okay, format!("sail Hello {}", client_domain))
 			}
 			_ => Self::bad_command(),
 		}
 	}
 
-	fn ehlo(&mut self, client_domain: &str) -> Response {
-		//TODO: Check for address literals, too
-		if Validator::validate_domain(client_domain) {
-			// Section 4.1.4 says that EHLO may appear later in the session, and
-			// that the state should be reset and the buffers cleared (like RSET)
-			// So here we just call rset and set the state later.
-			// We must, however, check to be sure it's valid first. To reset on
-			// an invalid EHLO is to break the spec.
-			self.rset();
-			self.state = State::Greeted;
+	fn ehlo(&mut self, client_domain: &Domain) -> Response {
+		// Section 4.1.4 says that EHLO may appear later in the session, and
+		// that the state should be reset and the buffers cleared (like RSET)
+		// So here we just call rset and set the state later.
+		// We must, however, check to be sure it's valid first. To reset on
+		// an invalid EHLO is to break the spec.
+		self.rset();
+		self.state = State::Greeted;
 
-			Response::with_message(ResponseCode::Okay, "Okay").push("Help")
-		} else {
-			Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
-		}
+		Response::with_message(ResponseCode::Okay, "Okay").push("Help")
 	}
 
 	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
@@ -146,33 +146,23 @@ impl Transaction {
 		}
 	}
 
-	fn mail(&mut self, reverse_path: &str) -> Response {
-		let reverse_path = &reverse_path[5..];
-
-		if self.state == State::Greeted && Validator::validate_reverse_path(reverse_path) {
+	fn mail(&mut self, reverse_path: &ReversePath) -> Response {
+		if self.state == State::Greeted {
 			self.state = State::GotReversePath;
-			self.message.reverse_path = reverse_path.to_string();
+			self.message.reverse_path = reverse_path.to_owned();
 
 			Response::with_message(ResponseCode::Okay, "Okay")
-		} else if self.state == State::Greeted {
-			Response::with_message(ResponseCode::InvalidParameters, "Bad reverse path")
 		} else {
 			Self::bad_command()
 		}
 	}
 
-	fn rcpt(&mut self, forward_path: &str) -> Response {
-		let forward_path = &forward_path[3..];
-
-		if (self.state == State::GotReversePath || self.state == State::GotForwardPath)
-			&& Validator::validate_forward_path(forward_path)
-		{
+	fn rcpt(&mut self, forward_path: &ForwardPath) -> Response {
+		if self.state == State::GotReversePath || self.state == State::GotForwardPath {
 			self.state = State::GotForwardPath;
-			self.message.forward_paths.push(forward_path.to_string());
+			self.message.forward_paths.push(forward_path.to_owned());
 
 			Response::with_message(ResponseCode::Okay, "Okay")
-		} else if self.state == State::GotReversePath || self.state == State::GotForwardPath {
-			Response::with_message(ResponseCode::InvalidParameters, "Bad forward path")
 		} else {
 			Self::bad_command()
 		}
@@ -180,7 +170,7 @@ impl Transaction {
 
 	fn rset(&mut self) -> Response {
 		self.message.data.clear();
-		self.message.reverse_path.clear();
+		self.message.reverse_path = Default::default();
 		self.message.forward_paths.clear();
 
 		self.state = match self.state {
