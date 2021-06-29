@@ -25,11 +25,15 @@ impl ArgParser {
 
 		if let Some((localpart, domain)) = splits {
 			// Check if it's an address literal first, and if it isn't, check if it's a domain
-			GrammarParser::parse(Rule::validate_local_part, localpart).is_ok()
+			Self::validate_local_part(localpart)
 				&& (Domain::from_str(domain)).is_ok()
 		} else {
 			false
 		}
+	}
+
+	pub fn validate_local_part(local_part: &str) -> bool {
+		GrammarParser::parse(Rule::validate_local_part, local_part).is_ok()
 	}
 
 	pub fn validate_path(path: &str) -> bool {
