@@ -191,4 +191,22 @@ mod test {
 			}
 		}
 	}
+
+	#[test]
+	fn reverse_path_null() {
+		assert!(ReversePath::from_str("<>").is_ok());
+	}
+
+	#[test]
+	fn forward_path_postmaster() {
+		let domains = valid_domains();
+		let postmasters = vec!["postmaster", "POSTMASTER", "Postmaster", "PoStMaStEr"];
+
+		for domain in domains {
+			for postmaster in postmasters.iter() {
+				let path = format!("<{}@{}>", postmaster, domain);
+				assert!(ForwardPath::from_str(&path).is_ok(), "failed on {}", path)
+			}
+		}
+	}
 }
