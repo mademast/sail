@@ -93,8 +93,8 @@ impl Path {
 impl FromStr for ForwardPath {
 	type Err = ParsePathError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		//todo: postmaster with source routing / ADLs
-        if s.to_ascii_lowercase() == "<postmaster>" {
+		//todo: properly validate source routing syntax. <asdpostmaster> shouldn't be valid. we should check domains, etc.
+		if s.strip_prefix('<').is_some() && s.to_ascii_lowercase().ends_with("postmaster>") {
 			Ok(Self::Postmaster)
 		} else {
 			Ok(Self::Regular(Path::from_str(s)?))
