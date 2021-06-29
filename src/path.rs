@@ -90,6 +90,29 @@ impl Path {
 	}
 }
 
+impl FromStr for ForwardPath {
+	type Err = ParsePathError;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		//todo: postmaster with source routing / ADLs
+        if s.to_ascii_lowercase() == "<postmaster>" {
+			Ok(Self::Postmaster)
+		} else {
+			Ok(Self::Regular(Path::from_str(s)?))
+		}
+	}
+}
+
+impl FromStr for ReversePath {
+	type Err = ParsePathError;
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		if s.to_ascii_lowercase() == "<>" {
+			Ok(Self::Null)
+		} else {
+			Ok(Self::Regular(Path::from_str(s)?))
+		}
+	}
+}
+
 #[derive(Error, Debug)]
 pub enum ParsePathError {
 	#[error("no enclosing angle brackets")]
