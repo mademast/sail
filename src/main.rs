@@ -38,11 +38,10 @@ pub async fn serve(mut stream: TcpStream) -> io::Result<()> {
 #[tokio::main]
 async fn main() {
 	let port: u16 = std::env::args()
-		.skip(1)
-		.next()
+		.nth(1)
 		.unwrap_or("8000".into())
 		.parse()
-		.unwrap();
+		.unwrap_or(8000);
 	let listener = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
 
 	loop {
