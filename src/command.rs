@@ -39,34 +39,38 @@ impl std::fmt::Display for Command {
 
 impl std::str::FromStr for Command {
 	type Err = ParseCommandError;
+
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		let command = s.split_once(' ').unwrap_or((s, ""));
-		match (command.0.to_ascii_uppercase().as_str(), command.1) {
-			("HELO", client_domain) => Ok(Command::Helo(Domain::from_str(client_domain.trim())?)),
-			("EHLO", client_domain) => Ok(Command::Ehlo(Domain::from_str(client_domain.trim())?)),
+
+		match (
+			command.0.to_ascii_uppercase().as_str(),
+			command.1.trim_end(),
+		) {
+			("HELO", client_domain) => Ok(Command::Helo(client_domain.parse()?)),
+			("EHLO", client_domain) => Ok(Command::Ehlo(client_domain.parse()?)),
+
 			("MAIL", reverse_path) => {
 				let reverse_path = reverse_path.split_once(':').unwrap_or(("", ""));
 				match (reverse_path.0.to_ascii_uppercase().as_str(), reverse_path.1) {
-					("FROM", reverse_path) => {
-						Ok(Command::Mail(ReversePath::from_str(reverse_path.trim())?))
-					}
+					("FROM", reverse_path) => Ok(Command::Mail(reverse_path.trim_end().parse()?)),
 					_ => Err(ParseCommandError::InvalidCommand),
 				}
 			}
+
 			("RCPT", forward_path) => {
 				let forward_path = forward_path.split_once(':').unwrap_or(("", ""));
 				match (forward_path.0.to_ascii_uppercase().as_str(), forward_path.1) {
-					("TO", forward_path) => {
-						Ok(Command::Rcpt(ForwardPath::from_str(forward_path.trim())?))
-					}
+					("TO", forward_path) => Ok(Command::Rcpt(forward_path.trim_end().parse()?)),
 					_ => Err(ParseCommandError::InvalidCommand),
 				}
 			}
+
 			("DATA", "") => Ok(Command::Data),
 			("RSET", "") => Ok(Command::Rset),
-			("VRFY", target) => Ok(Command::Vrfy(target.trim().to_owned())),
-			("EXPN", list) => Ok(Command::Expn(list.trim().to_owned())),
-			("HELP", command) => Ok(Command::Help(command.trim().to_owned())),
+			("VRFY", target) => Ok(Command::Vrfy(target.to_owned())),
+			("EXPN", list) => Ok(Command::Expn(list.to_owned())),
+			("HELP", command) => Ok(Command::Help(command.to_owned())),
 			("NOOP", _) => Ok(Command::Noop),
 			("QUIT", "") => Ok(Command::Quit),
 			_ => Err(ParseCommandError::InvalidCommand),
