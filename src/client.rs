@@ -62,7 +62,7 @@ impl Client {
 			State::Initiated => match code {
 				ResponseCode::ServiceReady => {
 					self.state = State::Greeted;
-					Some(Command::Ehlo(Domain::from_str("Sail").unwrap()))
+					Some(Command::Ehlo("Sail".parse().unwrap())) //todo: use actual hostname, not Sail
 				}
 				_ => todo!(),
 			},

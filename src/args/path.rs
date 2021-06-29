@@ -32,7 +32,7 @@ impl Path {
 			if Validator::validate_local_part(local_part) {
 				Ok(Self {
 					local_part: local_part.to_string(),
-					domain: Domain::from_str(domain)?,
+					domain: domain.parse()?,
 				})
 			} else {
 				Err(ParsePathError::InvalidLocalPart)
@@ -110,7 +110,7 @@ impl FromStr for ForwardPath {
 				Err(ParsePathError::InvalidAdlSyntax)
 			}
 		} else {
-			Ok(Self::Regular(Path::from_str(s)?))
+			Ok(Self::Regular(s.parse()?))
 		}
 	}
 }
@@ -121,7 +121,7 @@ impl FromStr for ReversePath {
 		if s.to_ascii_lowercase() == "<>" {
 			Ok(Self::Null)
 		} else {
-			Ok(Self::Regular(Path::from_str(s)?))
+			Ok(Self::Regular(s.parse()?))
 		}
 	}
 }

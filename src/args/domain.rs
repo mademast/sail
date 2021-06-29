@@ -1,8 +1,7 @@
 use crate::args::Validator;
 use std::{
 	fmt::Display,
-	net::{AddrParseError, IpAddr, Ipv4Addr, Ipv6Addr},
-	str::FromStr,
+	net::{AddrParseError, IpAddr},
 };
 use thiserror::Error;
 
@@ -28,7 +27,7 @@ impl Display for Domain {
 	}
 }
 
-impl FromStr for Domain {
+impl std::str::FromStr for Domain {
 	type Err = ParseDomainError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -36,9 +35,9 @@ impl FromStr for Domain {
 			if let Some(stripped) = literal.strip_suffix("]") {
 				if let Some(ipv6_literal) = stripped.strip_prefix("IPv6:") {
 					// Only parse ipv6 if it claims to be one
-					Ok(Self::Literal(IpAddr::V6(Ipv6Addr::from_str(ipv6_literal)?)))
+					Ok(Self::Literal(IpAddr::V6(ipv6_literal.parse()?)))
 				} else {
-					Ok(Self::Literal(IpAddr::V4(Ipv4Addr::from_str(stripped)?)))
+					Ok(Self::Literal(IpAddr::V4(stripped.parse()?)))
 				}
 			} else {
 				Err(ParseDomainError::Brackets)

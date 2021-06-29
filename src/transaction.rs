@@ -74,7 +74,7 @@ impl Transaction {
 	}
 
 	fn run_command(&mut self) -> Response {
-		let command = Command::from_str(&self.command.trim_end());
+		let command = self.command.trim_end().parse();
 
 		match command {
 			Ok(command) => match command {
@@ -125,7 +125,8 @@ impl Transaction {
 		self.rset();
 		self.state = State::Greeted;
 
-		Response::with_message(ResponseCode::Okay, "Okay").push("Help")
+		Response::with_message(ResponseCode::Okay, format!("sail Hello {}", client_domain))
+			.push("Help")
 	}
 
 	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
