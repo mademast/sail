@@ -63,25 +63,20 @@ pub mod test {
 	}
 
 	pub fn invalid_address_literals() -> Vec<String> {
-		let mut valid = vec![];
+		let mut invalid = vec![];
 
-		valid.push("[10.0.0.0".into()); // unclosed brackets
-		valid.push("10.0.0.1]".into()); // unoponed
-		valid.push("[192.168.1.256]".into()); // invalid IPv4
-
-		valid.push("[a0:40:29:bf:de:28:8c:ea]".into()); //no IPv6 tag
-		valid.push("[IPv6:192.168.1.1]".into()); //IPv6 but it's v4
-
-		valid.push("[IPv6:a0:40:29:bf:de:28:8c:ea:ef]".into()); //full, but too much
-		valid.push("[IPv6:a0:40:29:bf:de:28:8c:gg]".into()); //invalid hex
-
-		valid.push("[IPv6:a0:40:::de:28:8c:ea]".into()); //compressed, but too many colons
-		valid.push("[IPv6:a0:40:29:bf:de:28::]".into()); //ends compressed
-		valid.push("[IPv6:::40:29:bf:de:28:8c:ea]".into()); // starts compressed
+		invalid.push("[10.0.0.0".into()); // unclosed brackets
+		invalid.push("10.0.0.1]".into()); // unoponed
+		invalid.push("[192.168.1.256]".into()); // invalid IPv4
+		invalid.push("[a0:40:29:bf:de:28:8c:ea]".into()); //no IPv6 tag
+		invalid.push("[IPv6:192.168.1.1]".into()); //IPv6 but it's v4
+		invalid.push("[IPv6:a0:40:29:bf:de:28:8c:ea:ef]".into()); //full, but too much
+		invalid.push("[IPv6:a0:40:29:bf:de:28:8c:gg]".into()); //invalid hex
+		invalid.push("[IPv6:a0:40:::de:28:8c:ea]".into()); //compressed, but too many colons
 
 		//TODO: Weird IPv6 and v4 portmanteau invalids
 
-		valid
+		invalid
 	}
 
 	pub fn valid_domains() -> Vec<String> {
@@ -126,10 +121,57 @@ pub mod test {
 
 	#[test]
 	pub fn domain_fail() {
-		let strings = invalid_hostnames();
+		let strings = invalid_domains();
 
 		for domain in strings {
+			println!("{}", domain);
 			assert!(Domain::from_str(&domain).is_err())
+		}
+	}
+
+	#[test]
+	pub fn path_pass() {
+		let domains = valid_domains();
+		let locals = valid_localparts();
+
+		for domain in domains {
+			for local in locals.iter() {
+				assert!(Path::from_str(&format!("<{}@{}>", local, domain)).is_ok());
+			}
+		}
+	}
+
+	#[test]
+	pub fn path_fail() {
+		let invalid_domains = invalid_domains();
+		let invalid_locals: Vec<String> = vec![];
+
+		let valid_domains = valid_domains();
+		let valid_locals = valid_localparts();
+
+		// Should fail if the domain is bad but local good
+		for domain in invalid_domains.iter() {
+			for local in valid_locals.iter() {
+				assert!(
+					Path::from_str(&format!("<{}@{}>", local, domain)).is_err(),
+					"passed on {}",
+					&format!("<{}@{}>", local, domain)
+				);
+			}
+		}
+
+		// Should fail if the local is bad but domian good
+		for domain in valid_domains {
+			for local in invalid_locals.iter() {
+				assert!(Path::from_str(&format!("<{}@{}>", local, domain)).is_err());
+			}
+		}
+
+		// and if they're both bad
+		for domain in invalid_domains {
+			for local in invalid_locals.iter() {
+				assert!(Path::from_str(&format!("<{}@{}>", local, domain)).is_err());
+			}
 		}
 	}
 }
