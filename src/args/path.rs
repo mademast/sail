@@ -67,17 +67,20 @@ impl FromStr for Path {
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		if let Some(path) = s.strip_prefix("<") {
 			if let Some(stripped) = path.strip_suffix(">") {
-				if !stripped.starts_with('@') {
-					// ADLs have to start with @
-					Self::parse_naked_path(stripped)
-				} else {
+				if let Some(stripped) = stripped.strip_prefix('@') {
 					let splits: Vec<&str> = stripped.splitn(2, ':').collect();
 
 					if splits.len() != 2 {
 						Err(ParsePathError::AdlWithoutColon)
 					} else {
+						for domain in splits[0].split(",@") {
+							Domain::from_str(domain)?;
+						}
 						Self::parse_naked_path(splits[1])
 					}
+				} else {
+					// ADLs have to start with @
+					Self::parse_naked_path(stripped)
 				}
 			} else {
 				Err(ParsePathError::Brackets)
