@@ -150,4 +150,25 @@ mod test {
 			}
 		}
 	}
+
+	#[test]
+	fn singletons_test() {
+		let datas = case_modifier("data");
+		let rsets = case_modifier("rset");
+		let noops = case_modifier("noop");
+		let quits = case_modifier("quit");
+
+		for data in datas {
+			Command::from_str(&data).unwrap();
+		}
+		for rset in rsets {
+			Command::from_str(&rset).unwrap();
+		}
+		for noop in noops {
+			Command::from_str(&noop).unwrap();
+		}
+		for quit in quits {
+			Command::from_str(&quit).unwrap();
+		}
+	}
 }
