@@ -45,18 +45,18 @@ impl std::str::FromStr for Command {
 			("HELO", client_domain) => Ok(Command::Helo(Domain::from_str(client_domain.trim())?)),
 			("EHLO", client_domain) => Ok(Command::Ehlo(Domain::from_str(client_domain.trim())?)),
 			("MAIL", reverse_path) => {
-				let reverse_path = reverse_path.split_once(' ').unwrap_or(("", ""));
-				match reverse_path {
-					("FROM:", reverse_path) => {
+				let reverse_path = reverse_path.split_once(':').unwrap_or(("", ""));
+				match (reverse_path.0.to_ascii_uppercase().as_str(), reverse_path.1) {
+					("FROM", reverse_path) => {
 						Ok(Command::Mail(ReversePath::from_str(reverse_path.trim())?))
 					}
 					_ => Err(ParseCommandError::InvalidCommand),
 				}
 			}
 			("RCPT", forward_path) => {
-				let forward_path = forward_path.split_once(' ').unwrap_or(("", ""));
-				match forward_path {
-					("FROM:", forward_path) => {
+				let forward_path = forward_path.split_once(':').unwrap_or(("", ""));
+				match (forward_path.0.to_ascii_uppercase().as_str(), forward_path.1) {
+					("TO", forward_path) => {
 						Ok(Command::Rcpt(ForwardPath::from_str(forward_path.trim())?))
 					}
 					_ => Err(ParseCommandError::InvalidCommand),
