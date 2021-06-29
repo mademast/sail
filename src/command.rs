@@ -87,3 +87,44 @@ pub enum ParseCommandError {
 	#[error("invalid domain")]
 	InvalidDomain(#[from] ParseDomainError),
 }
+
+#[cfg(test)]
+mod test {
+	use super::*;
+	use std::{fs::File, io::Read, str::FromStr};
+
+	fn get_test_data(filename: &str) -> Vec<String> {
+		let mut file = File::open(format!("testfiles/data/{}", filename)).unwrap();
+		let mut buf = String::new();
+		file.read_to_string(&mut buf).unwrap();
+		buf.lines().map(|line| line.to_owned()).collect()
+	}
+
+	fn case_modifier(original: &str) -> [String; 3] {
+		[
+			original.to_string(),
+			original.to_ascii_lowercase(),
+			original.to_ascii_uppercase(),
+		]
+	}
+
+	#[test]
+	fn helo() {
+		let domains = get_test_data("valid_domains.txt");
+		for helo in case_modifier("helo") {
+			for domain in &domains {
+				Command::from_str(&format!("{} {}", helo, domain)).unwrap();
+			}
+		}
+	}
+	
+	#[test]
+	fn ehlo() {
+		let domains = get_test_data("valid_domains.txt");
+		for ehlo in case_modifier("ehlo") {
+			for domain in &domains {
+				Command::from_str(&format!("{} {}", ehlo, domain)).unwrap();
+			}
+		}
+	}
+}
