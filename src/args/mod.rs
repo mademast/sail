@@ -7,12 +7,12 @@ pub use path::*;
 pub use validator::*;
 
 #[cfg(test)]
-pub mod test {
+mod test {
 	use std::str::FromStr;
 
 	use super::*;
 
-	pub fn valid_hostnames() -> Vec<String> {
+	fn valid_hostnames() -> Vec<String> {
 		let mut valid = vec![];
 		let should_pass = ["domain", "0domain", "domain0", "0-domain", "domain-0"];
 
@@ -31,7 +31,7 @@ pub mod test {
 		valid
 	}
 
-	pub fn invalid_hostnames() -> Vec<String> {
+	fn invalid_hostnames() -> Vec<String> {
 		let mut invalid = vec![];
 		let valid = valid_hostnames();
 
@@ -46,54 +46,50 @@ pub mod test {
 		invalid
 	}
 
-	pub fn valid_address_literals() -> Vec<String> {
-		let mut valid = vec![];
-
-		valid.push("[10.0.0.0]".into());
-		valid.push("[192.168.1.1]".into());
-		valid.push("[IPv6:a0:40:29:bf:de:28:8c:ea]".into()); //full
-		valid.push("[IPv6:a0:40:00:00:de:28:8c:ea]".into()); //full with 2 nulls
-		valid.push("[IPv6:a0:40:00:00:00:00:8c:ea]".into()); //full with 4 nulls
-		valid.push("[IPv6:a0:40::de:28:8c:ea]".into()); //compressed
-		valid.push("[IPv6:a0:40::8c:ea]".into()); //compressed replace 4 nulls
+	fn valid_address_literals() -> Vec<String> {
+		vec![
+			String::from("[10.0.0.0]"),
+			String::from("[192.168.1.1]"),
+			String::from("[IPv6:a0:40:29:bf:de:28:8c:ea]"), //full
+			String::from("[IPv6:a0:40:00:00:de:28:8c:ea]"), //full with 2 nulls
+			String::from("[IPv6:a0:40:00:00:00:00:8c:ea]"), //full with 4 nulls
+			String::from("[IPv6:a0:40::de:28:8c:ea]"),      //compressed
+			String::from("[IPv6:a0:40::8c:ea]"),            //compressed replace 4 nulls
+		]
 
 		//TODO: push IPv6v4 full and compressed literals, too. Don't forget to add to invalid
-
-		valid
 	}
 
-	pub fn invalid_address_literals() -> Vec<String> {
-		let mut invalid = vec![];
-
-		invalid.push("[10.0.0.0".into()); // unclosed brackets
-		invalid.push("10.0.0.1]".into()); // unoponed
-		invalid.push("[192.168.1.256]".into()); // invalid IPv4
-		invalid.push("[a0:40:29:bf:de:28:8c:ea]".into()); //no IPv6 tag
-		invalid.push("[IPv6:192.168.1.1]".into()); //IPv6 but it's v4
-		invalid.push("[IPv6:a0:40:29:bf:de:28:8c:ea:ef]".into()); //full, but too much
-		invalid.push("[IPv6:a0:40:29:bf:de:28:8c:gg]".into()); //invalid hex
-		invalid.push("[IPv6:a0:40:::de:28:8c:ea]".into()); //compressed, but too many colons
+	fn invalid_address_literals() -> Vec<String> {
+		vec![
+			String::from("[10.0.0.0"),                         // unclosed brackets
+			String::from("10.0.0.1]"),                         // unoponed
+			String::from("[192.168.1.256]"),                   // invalid IPv4
+			String::from("[a0:40:29:bf:de:28:8c:ea]"),         //no IPv6 tag
+			String::from("[IPv6:192.168.1.1]"),                //IPv6 but it's v4
+			String::from("[IPv6:a0:40:29:bf:de:28:8c:ea:ef]"), //full, but too much
+			String::from("[IPv6:a0:40:29:bf:de:28:8c:gg]"),    //invalid hex
+			String::from("[IPv6:a0:40:::de:28:8c:ea]"),        //compressed, but too many colons
+		]
 
 		//TODO: Weird IPv6 and v4 portmanteau invalids
-
-		invalid
 	}
 
-	pub fn valid_domains() -> Vec<String> {
+	fn valid_domains() -> Vec<String> {
 		let mut valid = valid_hostnames();
 		valid.extend(valid_address_literals());
 
 		valid
 	}
 
-	pub fn invalid_domains() -> Vec<String> {
+	fn invalid_domains() -> Vec<String> {
 		let mut invalid = invalid_hostnames();
 		invalid.extend(invalid_address_literals());
 
 		invalid
 	}
 
-	pub fn valid_localparts() -> Vec<String> {
+	fn valid_localparts() -> Vec<String> {
 		vec![
 			String::from("\"\""),
 			String::from("user"),
@@ -111,7 +107,7 @@ pub mod test {
 	}
 
 	#[test]
-	pub fn domain_pass() {
+	fn domain_pass() {
 		let strings = valid_domains();
 
 		for domain in strings {
@@ -120,7 +116,7 @@ pub mod test {
 	}
 
 	#[test]
-	pub fn domain_fail() {
+	fn domain_fail() {
 		let strings = invalid_domains();
 
 		for domain in strings {
@@ -130,7 +126,7 @@ pub mod test {
 	}
 
 	#[test]
-	pub fn path_pass() {
+	fn path_pass() {
 		let domains = valid_domains();
 		let locals = valid_localparts();
 
