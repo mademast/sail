@@ -33,7 +33,7 @@ impl Sail {
 
 			self.handle_message(message);
 
-			//Here we'd check if we relay or save and act approriatly. but FIRST we should write
+			//Here we'd check if we relay or save and act appropriately. but FIRST we should write
 			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
 			//try once, as that shouldn't take long, and then if we fail we write? For now, we print.
 			//println!("{}", message.data.join("\r\n"));
@@ -45,6 +45,7 @@ impl Sail {
 		}
 	}
 
+	// filters local messages from foreign (to be relayed) messages
 	fn handle_message(&self, mut msg: Message) {
 		let message_data = msg.data.join("\r\n");
 		msg.forward_paths = msg
@@ -63,11 +64,14 @@ impl Sail {
 		println!("{:?}", &msg.forward_paths);
 	}
 
+	//todo: something other than this? we'd need a database of users and whatnot, though
 	fn deliver_local(&self, forward: &ForwardPath, data: String) {
 		println!("LOCAL TO: {}\n{}", forward, data);
 	}
 }
 
+//runs as long as the user remains connected
+// handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
 async fn serve(mut stream: TcpStream, message_sender: Sender<Message>) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(message_sender);
 	stream
@@ -96,6 +100,7 @@ async fn serve(mut stream: TcpStream, message_sender: Sender<Message>) -> io::Re
 	Ok(())
 }
 
+//waits for new connections, dispatches new task to handle each new inbound connection
 async fn listen(listener: TcpListener, message_sender: Sender<Message>) {
 	loop {
 		let (stream, clientaddr) = listener.accept().await.unwrap();
@@ -135,6 +140,7 @@ async fn main() {
 
 	// Maybe we join or something? At some point we have to handle graceful shutdowns
 	// so we'd need to handle that somehow. Some way to tell both things to shutdown.
+	//we could also just await on the listener, as long as the receiver is running first.
 	listen_task.await.unwrap();
 	receive_task.await.unwrap();
 }

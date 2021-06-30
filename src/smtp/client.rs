@@ -26,9 +26,9 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct ForeignPath(Path);
 
-impl Into<ForwardPath> for ForeignPath {
-	fn into(self) -> ForwardPath {
-		ForwardPath::Regular(self.0)
+impl From<ForeignPath> for ForwardPath {
+	fn from(other: ForeignPath) -> Self {
+		Self::Regular(other.0)
 	}
 }
 
@@ -141,6 +141,7 @@ impl Client {
 	async fn get_mx_record(fqdn: &str) -> Option<IpAddr> {
 		let resolver =
 			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).ok()?;
+
 		let mut mx_rec: Vec<(u16, String)> = resolver
 			.mx_lookup(fqdn)
 			.await
@@ -148,6 +149,7 @@ impl Client {
 			.iter()
 			.map(|mx| (mx.preference(), mx.exchange().to_string()))
 			.collect();
+
 		mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2));
 		let mx_domain = mx_rec.first()?.1.clone();
 		let mx_ip = resolver.lookup_ip(mx_domain).await.ok()?;
@@ -166,7 +168,7 @@ impl Client {
 		let domains: HashSet<&Domain> = message
 			.forward_paths
 			.iter()
-			.filter_map(|path| Some(&path.0.domain)) //map paths to the second half of the string
+			.map(|path| &path.0.domain) //map paths to the second half of the string
 			.collect();
 
 		let mut paths_by_domain: Vec<(&Domain, Vec<ForeignPath>)> = vec![];
