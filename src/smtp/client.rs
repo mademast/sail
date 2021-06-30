@@ -2,7 +2,7 @@
 pub struct Client {
 	state: State,
 	reply: String,
-	message: Message,
+	message: ForeignMessage,
 }
 
 use std::{collections::HashSet, net::IpAddr, time::Duration};
@@ -18,36 +18,55 @@ use trust_dns_resolver::{
 
 use super::{
 	args::{Domain, ForwardPath, Path, ReversePath},
-	Command, Message, ResponseCode,
+	Command, ResponseCode,
 };
 
 /// A small wrapper around Path as a type-checked, compile-time feature to try
 // and stop us from doing stupid things and trying to relay local messages.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ForeignPath(Path);
+
+impl Into<ForwardPath> for ForeignPath {
+	fn into(self) -> ForwardPath {
+		ForwardPath::Regular(self.0)
+	}
+}
+
+#[derive(Debug, Clone)]
 pub struct ForeignMessage {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForeignPath>,
 	pub data: Vec<String>,
 }
 
-impl Client {
-	pub fn initiate(
-		foreign_paths: Vec<ForeignPath>,
+impl ForeignMessage {
+	pub fn from_parts(
 		reverse_path: ReversePath,
+		forward_paths: Vec<ForeignPath>,
 		data: Vec<String>,
 	) -> Self {
-		let forward_paths = foreign_paths
-			.into_iter()
-			.map(|foreign| ForwardPath::Regular(foreign.0))
-			.collect();
-
 		Self {
-			message: Message {
-				reverse_path,
-				forward_paths,
-				data,
-			},
+			reverse_path,
+			forward_paths,
+			data,
+		}
+	}
+}
+
+impl Default for ForeignMessage {
+	fn default() -> Self {
+		Self {
+			reverse_path: ReversePath::Null,
+			forward_paths: vec![],
+			data: vec![],
+		}
+	}
+}
+
+impl Client {
+	pub fn initiate(message: ForeignMessage) -> Self {
+		Self {
+			message,
 			..Default::default()
 		}
 	}
@@ -92,7 +111,7 @@ impl Client {
 			State::SentReversePath => match code {
 				ResponseCode::Okay => {
 					self.state = State::SendingForwardPaths;
-					Some(Command::Rcpt(self.message.forward_paths.pop()?))
+					Some(Command::Rcpt(self.message.forward_paths.pop()?.into()))
 				}
 				_ => todo!(),
 			},
@@ -100,7 +119,7 @@ impl Client {
 				if let Some(path) = self.message.forward_paths.pop() {
 					match code {
 						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
-							Some(Command::Rcpt(path))
+							Some(Command::Rcpt(path.into()))
 						}
 						_ => todo!(),
 					}
@@ -150,7 +169,7 @@ impl Client {
 			.filter_map(|path| Some(&path.0.domain)) //map paths to the second half of the string
 			.collect();
 
-		let mut paths_by_domain: Vec<(&Domain, Vec<&ForeignPath>)> = vec![];
+		let mut paths_by_domain: Vec<(&Domain, Vec<ForeignPath>)> = vec![];
 
 		for domain in domains {
 			paths_by_domain.push((
@@ -160,7 +179,7 @@ impl Client {
 					.iter()
 					.filter_map(|path| {
 						if path.0.domain == *domain {
-							Some(path)
+							Some(path.clone())
 						} else {
 							None
 						}
@@ -186,9 +205,11 @@ impl Client {
 
 			Self::send_to_ip(
 				address,
-				paths,
-				message.reverse_path.clone(),
-				message.data.clone(),
+				ForeignMessage::from_parts(
+					message.reverse_path.clone(),
+					paths,
+					message.data.clone(),
+				),
 			)
 			.await
 			.unwrap(); //TODO: handle these results and inform user about them
@@ -197,12 +218,7 @@ impl Client {
 		todo!() //TODO: send 250 if the message sent properly, otherwise a 5xx error or whatever the remote server sent
 		 //alternatively, send 250 immediately, then construct an undeliverable message
 	}
-	async fn send_to_ip(
-		addr: IpAddr,
-		paths: Vec<&ForeignPath>,
-		reverse_path: ReversePath,
-		data: Vec<String>,
-	) -> std::io::Result<()> {
+	async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> std::io::Result<()> {
 		//TODO: use our own errors? send box dyn error?
 		eprintln!("{}:{}", addr, 25);
 		//todo: this one hangs interminably. why? i do not know
@@ -214,11 +230,7 @@ impl Client {
 		)
 		.await??;
 
-		let mut client = Self::initiate(
-			paths.into_iter().map(|path| path.clone()).collect(),
-			reverse_path,
-			data,
-		);
+		let mut client = Self::initiate(message);
 
 		let mut buf = vec![0; 1024];
 
