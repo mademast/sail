@@ -1,14 +1,15 @@
+mod config;
+mod dns;
+
 use std::{
 	str::FromStr,
 	sync::mpsc::{channel, Receiver, Sender},
 };
 
-use sail::{
-	smtp::{
-		args::{Domain, ForwardPath},
-		Message, Server,
-	},
-	Config,
+use config::Config;
+use sail::smtp::{
+	args::{Domain, ForwardPath},
+	Message, Server,
 };
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
