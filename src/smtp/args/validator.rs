@@ -6,7 +6,7 @@ use pest_derive::*;
 use super::Domain;
 
 #[derive(Parser)]
-#[grammar = "smtp_grammar.pest"]
+#[grammar = "smtp/args/smtp_grammar.pest"]
 pub struct GrammarParser;
 
 pub struct Validator;
