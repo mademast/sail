@@ -21,12 +21,27 @@ use super::{
 	Command, Message, ResponseCode,
 };
 
+/// A small wrapper around Path as a type-checked, compile-time feature to try
+// and stop us from doing stupid things and trying to relay local messages.
+#[derive(Clone)]
+pub struct ForeignPath(Path);
+pub struct ForeignMessage {
+	pub reverse_path: ReversePath,
+	pub forward_paths: Vec<ForeignPath>,
+	pub data: Vec<String>,
+}
+
 impl Client {
 	pub fn initiate(
-		forward_paths: Vec<ForwardPath>, //todo: make this paths? handle postmaster higher up?
+		foreign_paths: Vec<ForeignPath>,
 		reverse_path: ReversePath,
 		data: Vec<String>,
 	) -> Self {
+		let forward_paths = foreign_paths
+			.into_iter()
+			.map(|foreign| ForwardPath::Regular(foreign.0))
+			.collect();
+
 		Self {
 			message: Message {
 				reverse_path,
@@ -36,6 +51,7 @@ impl Client {
 			..Default::default()
 		}
 	}
+
 	pub fn push(&mut self, reply: &str) -> Option<Command> {
 		self.reply.push_str(reply);
 
@@ -47,6 +63,7 @@ impl Client {
 
 		self.process_reply()
 	}
+
 	fn process_reply(&mut self) -> Option<Command> {
 		if self.reply.len() < 3 || !self.reply.is_ascii() {
 			return None;
@@ -126,24 +143,14 @@ impl Client {
 		ip.iter().next()
 	}
 
-	fn postmaster(message: Message) {
-		todo!() //save to disk? what to do with postmaster stuff
-	}
-
-	pub async fn run(message: Message) {
+	pub async fn run(message: ForeignMessage) {
 		let domains: HashSet<&Domain> = message
 			.forward_paths
 			.iter()
-			.filter_map(|path| match path {
-				ForwardPath::Postmaster => {
-					Self::postmaster(message.clone());
-					None
-				}
-				ForwardPath::Regular(path) => Some(&path.domain),
-			}) //map paths to the second half of the string
+			.filter_map(|path| Some(&path.0.domain)) //map paths to the second half of the string
 			.collect();
 
-		let mut paths_by_domain: Vec<(&Domain, Vec<&Path>)> = vec![];
+		let mut paths_by_domain: Vec<(&Domain, Vec<&ForeignPath>)> = vec![];
 
 		for domain in domains {
 			paths_by_domain.push((
@@ -151,14 +158,11 @@ impl Client {
 				message
 					.forward_paths
 					.iter()
-					.filter_map(|path| match path {
-						ForwardPath::Postmaster => None,
-						ForwardPath::Regular(path) => {
-							if path.domain == *domain {
-								Some(path)
-							} else {
-								None
-							}
+					.filter_map(|path| {
+						if path.0.domain == *domain {
+							Some(path)
+						} else {
+							None
 						}
 					}) //filter for paths to the current domain
 					.collect(),
@@ -195,7 +199,7 @@ impl Client {
 	}
 	async fn send_to_ip(
 		addr: IpAddr,
-		paths: Vec<&Path>,
+		paths: Vec<&ForeignPath>,
 		reverse_path: ReversePath,
 		data: Vec<String>,
 	) -> std::io::Result<()> {
@@ -211,10 +215,7 @@ impl Client {
 		.await??;
 
 		let mut client = Self::initiate(
-			paths
-				.into_iter()
-				.map(|path| ForwardPath::Regular(path.clone()))
-				.collect(),
+			paths.into_iter().map(|path| path.clone()).collect(),
 			reverse_path,
 			data,
 		);
