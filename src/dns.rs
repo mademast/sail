@@ -12,7 +12,7 @@ use trust_dns_resolver::{
 pub struct DnsLookup {
 	/// A Vec containing possible mail server names. It is sorted in reverse
 	/// order of preference. The least prefered servers are at the front of the
-	// Vec. This lets you use Vec::pop to get the next preferred server.
+	/// Vec. This lets you use Vec::pop to get the next preferred server.
 	mx_records: Vec<String>,
 	/// A Vec containing possible IP addresses of the last popped domain.
 	ip_addresses: Vec<IpAddr>,
@@ -33,10 +33,7 @@ impl DnsLookup {
 		mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2).reverse());
 
 		Ok(Self {
-			mx_records: mx_rec
-				.into_iter()
-				.map(|(preference, domain)| domain)
-				.collect(),
+			mx_records: mx_rec.into_iter().map(|(_, domain)| domain).collect(),
 			ip_addresses: vec![],
 		})
 	}
@@ -48,6 +45,11 @@ impl DnsLookup {
 			None => {
 				let domain = self.mx_records.pop().ok_or(DnsLookupError::NoMoreRecords)?;
 				self.ip_addresses = Self::get_addresses(&domain).await?;
+
+				// We recur here because get_addresses could return a Vec with
+				// nothing in it, so we'd have to try again. Our saftey, so we
+				// don't recur forever, is that we pop from self.mx_records and
+				// return an error if we don't have any more.
 				self.next_address().await
 			}
 		}
