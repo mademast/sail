@@ -1,4 +1,3 @@
-
 pub struct Response {
 	code: ResponseCode,
 	messages: Vec<String>,
@@ -25,24 +24,24 @@ impl Response {
 		self
 	}
 
-    pub fn as_string(&self) -> String {
-        let mut working = self.messages.clone();
-        let mut ret = format!("{} ", self.code.as_code());
+	pub fn as_string(&self) -> String {
+		let mut working = self.messages.clone();
+		let mut ret = format!("{} ", self.code.as_code());
 
-        if let Some(message) = working.pop() {
-            ret.push_str(&message);
-        }
+		if let Some(message) = working.pop() {
+			ret.push_str(&message);
+		}
 
-        for message in working {
-            ret.insert_str(0, &format!("{}-{}\r\n", self.code.as_code(), message));
-        }
+		for message in working {
+			ret.insert_str(0, &format!("{}-{}\r\n", self.code.as_code(), message));
+		}
 
-        ret.push_str("\r\n");
-        ret
-    }
+		ret.push_str("\r\n");
+		ret
+	}
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ResponseCode {
 	UnrecognizedCommand,   // 500
 	InvalidParameters,     // 501
@@ -72,11 +71,16 @@ pub enum ResponseCode {
 
 	StartMailInput,  // 354
 	TransactionFail, // 554
+
+	UnknownPositiveCompletion, // 2xx
+	UnknownPositiveWaiting,    // 3xx
+	UnknownNegativeTemporary,  // 4xx
+	UnknwonNegativePermanent,  // 5xx
 }
 
 impl ResponseCode {
 	pub fn from_code(code: usize) -> Option<ResponseCode> {
-		match code {
+		let response_code = match code {
 			500 => Some(ResponseCode::UnrecognizedCommand),
 			501 => Some(ResponseCode::InvalidParameters),
 			502 => Some(ResponseCode::CommandNotImplemented),
@@ -106,6 +110,18 @@ impl ResponseCode {
 			354 => Some(ResponseCode::StartMailInput),
 			554 => Some(ResponseCode::TransactionFail),
 			_ => None,
+		};
+
+		if let None = response_code {
+			match code / 100 {
+				2 => Some(ResponseCode::UnknownPositiveCompletion),
+				3 => Some(ResponseCode::UnknownPositiveWaiting),
+				4 => Some(ResponseCode::UnknownNegativeTemporary),
+				5 => Some(ResponseCode::UnknwonNegativePermanent),
+				_ => None,
+			}
+		} else {
+			response_code
 		}
 	}
 
@@ -139,6 +155,13 @@ impl ResponseCode {
 
 			ResponseCode::StartMailInput => 354,
 			ResponseCode::TransactionFail => 554,
+
+			// Should these enums carry the value they were created from with
+			// them so we can convert back to a number loslessly?
+			ResponseCode::UnknownPositiveCompletion => 200,
+			ResponseCode::UnknownPositiveWaiting => 300,
+			ResponseCode::UnknownNegativeTemporary => 400,
+			ResponseCode::UnknwonNegativePermanent => 500,
 		}
 	}
 }
@@ -146,6 +169,29 @@ impl ResponseCode {
 #[cfg(test)]
 mod test {
 	use super::*;
+
+	#[test]
+	fn response_code_unknowns() {
+		assert_eq!(
+			ResponseCode::from_code(299),
+			Some(ResponseCode::UnknownPositiveCompletion)
+		);
+
+		assert_eq!(
+			ResponseCode::from_code(399),
+			Some(ResponseCode::UnknownPositiveWaiting)
+		);
+
+		assert_eq!(
+			ResponseCode::from_code(499),
+			Some(ResponseCode::UnknownNegativeTemporary)
+		);
+
+		assert_eq!(
+			ResponseCode::from_code(599),
+			Some(ResponseCode::UnknwonNegativePermanent)
+		);
+	}
 
 	#[test]
 	fn response_as_string_multiline() {

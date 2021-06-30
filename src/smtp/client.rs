@@ -87,10 +87,10 @@ impl Client {
 		if self.reply.len() < 3 || !self.reply.is_ascii() {
 			return None;
 		}
-		let (code, text) = self.reply.split_at(3);
+		let code = self.reply.split_at(3).0;
 
 		//todo: parse multiline replies e.g. ehlo
-		//todo: parse unknown response codes according to their first digit
+		//todo: handle the unknown response codes
 		let code = ResponseCode::from_code(code.parse().ok()?)?;
 
 		match self.state {
