@@ -4,7 +4,10 @@ use std::{
 };
 
 use sail::{
-	smtp::{args::Domain, Message, Server},
+	smtp::{
+		args::{Domain, ForwardPath},
+		Message, Server,
+	},
 	Config,
 };
 use tokio::{
@@ -27,11 +30,35 @@ impl Sail {
 				.recv()
 				.expect("No more senders, what happened?"); //TODO: Not this! Handle the error
 
+			self.handle_message(message);
+
 			//Here we'd check if we relay or save and act approriatly. but FIRST we should write
 			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
 			//try once, as that shouldn't take long, and then if we fail we write? For now, we print.
-			println!("{}", message.data.join("\r\n"));
+			//println!("{}", message.data.join("\r\n"));
 		}
+	}
+
+	fn handle_message(&self, mut msg: Message) {
+		let message_data = msg.data.join("\r\n");
+		msg.forward_paths = msg
+			.forward_paths
+			.into_iter()
+			.filter(|forward| {
+				if self.config.forward_path_is_local(forward) {
+					self.deliver_local(forward, message_data.clone());
+					false
+				} else {
+					true
+				}
+			})
+			.collect();
+
+		println!("{:?}", &msg.forward_paths);
+	}
+
+	fn deliver_local(&self, forward: &ForwardPath, data: String) {
+		println!("LOCAL TO: {}\n{}", forward, data);
 	}
 }
 
@@ -103,4 +130,5 @@ async fn main() {
 	// Maybe we join or something? At some point we have to handle graceful shutdowns
 	// so we'd need to handle that somehow. Some way to tell both things to shutdown.
 	listen_task.await.unwrap();
+	receive_task.await.unwrap();
 }
