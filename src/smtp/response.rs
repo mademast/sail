@@ -75,7 +75,7 @@ pub enum ResponseCode {
 	UnknownPositiveCompletion, // 2xx
 	UnknownPositiveWaiting,    // 3xx
 	UnknownNegativeTemporary,  // 4xx
-	UnknwonNegativePermanent,  // 5xx
+	UnknownNegativePermanent,  // 5xx
 }
 
 impl ResponseCode {
@@ -112,12 +112,12 @@ impl ResponseCode {
 			_ => None,
 		};
 
-		if let None = response_code {
+		if response_code.is_none() {
 			match code / 100 {
 				2 => Some(ResponseCode::UnknownPositiveCompletion),
 				3 => Some(ResponseCode::UnknownPositiveWaiting),
 				4 => Some(ResponseCode::UnknownNegativeTemporary),
-				5 => Some(ResponseCode::UnknwonNegativePermanent),
+				5 => Some(ResponseCode::UnknownNegativePermanent),
 				_ => None,
 			}
 		} else {
@@ -157,11 +157,11 @@ impl ResponseCode {
 			ResponseCode::TransactionFail => 554,
 
 			// Should these enums carry the value they were created from with
-			// them so we can convert back to a number loslessly?
+			// them so we can convert back to a number losslessly?
 			ResponseCode::UnknownPositiveCompletion => 200,
 			ResponseCode::UnknownPositiveWaiting => 300,
 			ResponseCode::UnknownNegativeTemporary => 400,
-			ResponseCode::UnknwonNegativePermanent => 500,
+			ResponseCode::UnknownNegativePermanent => 500,
 		}
 	}
 }
@@ -189,7 +189,7 @@ mod test {
 
 		assert_eq!(
 			ResponseCode::from_code(599),
-			Some(ResponseCode::UnknwonNegativePermanent)
+			Some(ResponseCode::UnknownNegativePermanent)
 		);
 	}
 

@@ -19,8 +19,6 @@ impl Validator {
 		GrammarParser::parse(Rule::validate_domain, domain).is_ok()
 	}
 
-	//TODO: Accept address literals as they appear for RFC5321. We need to
-	//handle general literals as well as IPV6 having "IPv6:" before it
 	pub fn validate_mailbox(mailbox: &str) -> bool {
 		let splits = mailbox.rsplit_once("@");
 

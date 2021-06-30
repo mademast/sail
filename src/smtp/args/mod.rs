@@ -63,7 +63,7 @@ mod test {
 	fn invalid_address_literals() -> Vec<String> {
 		vec![
 			String::from("[10.0.0.0"),                         // unclosed brackets
-			String::from("10.0.0.1]"),                         // unoponed
+			String::from("10.0.0.1]"),                         // unopened
 			String::from("[192.168.1.256]"),                   // invalid IPv4
 			String::from("[a0:40:29:bf:de:28:8c:ea]"),         //no IPv6 tag
 			String::from("[IPv6:192.168.1.1]"),                //IPv6 but it's v4

@@ -32,7 +32,7 @@ impl Sail {
 
 			self.handle_message(message);
 
-			//Here we'd check if we relay or save and act approriatly. but FIRST we should write
+			//Here we'd check if we relay or save and act appropriately. but FIRST we should write
 			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
 			//try once, as that shouldn't take long, and then if we fail we write? For now, we print.
 			//println!("{}", message.data.join("\r\n"));
