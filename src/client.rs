@@ -5,10 +5,11 @@ pub struct Client {
 	message: Message,
 }
 
-use std::{collections::HashSet, net::IpAddr, str::FromStr};
+use std::{collections::HashSet, net::IpAddr, str::FromStr, time::Duration};
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
 	net::TcpStream,
+	time::timeout,
 };
 use trust_dns_resolver::{
 	config::{ResolverConfig, ResolverOpts},
@@ -203,9 +204,19 @@ impl Client {
 		//TODO: use our own errors? send box dyn error?
 		eprintln!("{}:{}", addr, 25);
 		//todo: this one hangs interminably. why? i do not know
-		let mut stream = TcpStream::connect(format!("{}:{}", addr, 25)).await?;
+		//todo: timeouts.
+		//todo: send failed connection message if port 25 is blocked, or something
+		let mut stream = timeout(
+			Duration::from_millis(2500),
+			TcpStream::connect(format!("{}:{}", addr, 25)),
+		)
+		.await??;
+
 		let mut client = Self::initiate(
-			paths.into_iter().map(|path| ForwardPath::Regular(path.clone())).collect(),
+			paths
+				.into_iter()
+				.map(|path| ForwardPath::Regular(path.clone()))
+				.collect(),
 			reverse_path,
 			data,
 		);

@@ -171,4 +171,6 @@ mod test {
 			Command::from_str(&quit).unwrap();
 		}
 	}
+	//todo: test invalid commands, invalid parameters, etc
+	//todo: once vrfy and expn and help are implemented, test them.
 }
