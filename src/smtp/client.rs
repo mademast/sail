@@ -5,7 +5,7 @@ pub struct Client {
 	message: Message,
 }
 
-use std::{collections::HashSet, net::IpAddr, str::FromStr, time::Duration};
+use std::{collections::HashSet, net::IpAddr, time::Duration};
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
 	net::TcpStream,

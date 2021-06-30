@@ -1,4 +1,3 @@
-use std::str::FromStr;
 use std::sync::mpsc::Sender;
 
 use super::{
