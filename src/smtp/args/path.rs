@@ -5,19 +5,19 @@ use std::{
 };
 use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Path {
 	pub local_part: String,
 	pub domain: Domain,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ForwardPath {
 	Postmaster,
 	Regular(Path),
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum ReversePath {
 	Null,
 	Regular(Path),
