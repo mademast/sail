@@ -36,6 +36,11 @@ impl Sail {
 			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
 			//try once, as that shouldn't take long, and then if we fail we write? For now, we print.
 			//println!("{}", message.data.join("\r\n"));
+
+			// put the runner in Client, or another struct that sits above client.
+			//it should try once, then write to disk and sleep for a while.
+			//rfc guidelines help.
+			//client should be like server; not handling any networking or async anything, just interacting with strings.
 		}
 	}
 
