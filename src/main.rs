@@ -2,14 +2,18 @@ mod config;
 mod dns;
 
 use std::{
+	collections::{HashMap, HashSet},
 	str::FromStr,
-	sync::mpsc::{channel, Receiver, Sender},
+	sync::{
+		mpsc::{channel, Receiver, Sender},
+		Arc,
+	},
 };
 
 use config::Config;
 use sail::smtp::{
 	args::{Domain, ForwardPath},
-	Message, Server,
+	ForeignMessage, ForeignPath, Message, Server,
 };
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
@@ -19,19 +23,16 @@ use tokio::{
 
 struct Sail {
 	config: Config,
-	receiver: Receiver<Message>,
-	messages: Vec<Message>,
+	local_messages: Vec<Message>,
+	foreign_messages: Vec<(Domain, ForeignMessage)>,
 }
 
 impl Sail {
-	async fn receive_messages(self) {
+	async fn receive_messages(self, receiver: Receiver<Message>) {
 		loop {
-			let message = self
-				.receiver
-				.recv()
-				.expect("No more senders, what happened?"); //TODO: Not this! Handle the error
+			let message = receiver.recv().expect("No more senders, what happened?"); //TODO: Not this! Handle the error
 
-			self.handle_message(message);
+			self.handle_message(message).await;
 
 			//Here we'd check if we relay or save and act appropriately. but FIRST we should write
 			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
@@ -46,27 +47,66 @@ impl Sail {
 	}
 
 	// filters local messages from foreign (to be relayed) messages
-	fn handle_message(&self, mut msg: Message) {
-		let message_data = msg.data.join("\r\n");
-		msg.forward_paths = msg
-			.forward_paths
+	async fn handle_message(&self, message: Message) {
+		let (reverse, forwards, data) = message.into_parts();
+
+		let mut foreign_map: HashMap<Domain, Vec<ForeignPath>> = HashMap::new();
+		let locals: Vec<ForwardPath> = forwards
 			.into_iter()
 			.filter(|forward| {
-				if self.config.forward_path_is_local(forward) {
-					self.deliver_local(forward, message_data.clone());
-					false
+				if self.config.forward_path_is_local(&forward) {
+					true // locals stay in the vec
 				} else {
-					true
+					if let ForwardPath::Regular(path) = forward {
+						// get the vector for a specific domain, but if there isn't one, make it.
+						match foreign_map.get_mut(&path.domain) {
+							Some(vec) => vec.push(ForeignPath { 0: path.clone() }),
+							None => {
+								foreign_map.insert(
+									path.domain.clone(),
+									vec![ForeignPath { 0: path.clone() }],
+								);
+								()
+							}
+						}
+
+						false
+					} else {
+						// should've been caught by forward_path_is_local, maybe
+						// print a warning if we reach here?
+						true
+					}
 				}
 			})
 			.collect();
 
-		println!("{:?}", &msg.forward_paths);
+		let domains_messages: Vec<(Domain, ForeignMessage)> = foreign_map
+			.into_iter()
+			.map(|(domain, foreign_paths)| {
+				(
+					domain,
+					ForeignMessage::from_parts(reverse.clone(), foreign_paths, data.clone()),
+				)
+			})
+			.collect();
+
+		self.deliver_local(Message {
+			reverse_path: reverse.clone(),
+			forward_paths: locals,
+			data: data.clone(),
+		})
+		.await;
 	}
 
 	//todo: something other than this? we'd need a database of users and whatnot, though
-	fn deliver_local(&self, forward: &ForwardPath, data: String) {
-		println!("LOCAL TO: {}\n{}", forward, data);
+	async fn deliver_local(&self, message: Message) {
+		let (reverse, forwards, data) = message.into_parts();
+
+		print!("REVERSE: {}\nLOCAL TO:", reverse);
+		for path in forwards {
+			print!(" {}", path);
+		}
+		println!("\n{}", data.join("\r\n"))
 	}
 }
 
@@ -131,11 +171,11 @@ async fn main() {
 	let (sender, receiver) = channel();
 	let sail = Sail {
 		config,
-		receiver,
-		messages: vec![],
+		local_messages: vec![],
+		foreign_messages: vec![],
 	};
 
-	let receive_task = tokio::spawn(sail.receive_messages());
+	let receive_task = tokio::spawn(sail.receive_messages(receiver));
 	let listen_task = tokio::spawn(listen(listener, sender));
 
 	// Maybe we join or something? At some point we have to handle graceful shutdowns

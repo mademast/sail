@@ -8,6 +8,16 @@ pub struct Message {
 }
 
 impl Message {
+	pub fn into_parts(self) -> (ReversePath, Vec<ForwardPath>, Vec<String>) {
+		match self {
+			Message {
+				reverse_path,
+				forward_paths,
+				data,
+			} => (reverse_path, forward_paths, data),
+		}
+	}
+
 	pub fn undeliverable(reasons: Vec<String>, reverse_path: ReversePath) -> Option<Self> {
 		match reverse_path {
 			ReversePath::Null => None,
