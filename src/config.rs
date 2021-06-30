@@ -1,4 +1,4 @@
-use crate::args::{Domain, ForwardPath, Path};
+use crate::smtp::args::{Domain, ForwardPath, Path};
 
 pub struct Config {
 	//TODO: Properly load a config and don't have this be public!

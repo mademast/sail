@@ -3,7 +3,10 @@ use std::{
 	sync::mpsc::{channel, Receiver, Sender},
 };
 
-use sail::{args::Domain, Config, Message, Transaction};
+use sail::{
+	smtp::{args::Domain, Message, Server},
+	Config,
+};
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
 	net::TcpListener,
@@ -33,7 +36,7 @@ impl Sail {
 }
 
 async fn serve(mut stream: TcpStream, message_sender: Sender<Message>) -> io::Result<()> {
-	let (mut transaction, inital_response) = Transaction::initiate(message_sender);
+	let (mut transaction, inital_response) = Server::initiate(message_sender);
 	stream
 		.write_all(inital_response.as_string().as_bytes())
 		.await?;

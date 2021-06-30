@@ -16,11 +16,9 @@ use trust_dns_resolver::{
 	TokioAsyncResolver,
 };
 
-use crate::{
+use super::{
 	args::{Domain, ForwardPath, Path, ReversePath},
-	command::Command,
-	message::Message,
-	response::ResponseCode,
+	Command, Message, ResponseCode,
 };
 
 impl Client {

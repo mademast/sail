@@ -1,4 +1,4 @@
-use crate::args::{ForwardPath, ReversePath};
+use super::args::{ForwardPath, ReversePath};
 
 #[derive(Default, Clone)]
 pub struct Message {

@@ -1,4 +1,4 @@
-use crate::args::{Domain, ParseDomainError, Validator};
+use super::{Domain, ParseDomainError, Validator};
 use std::{
 	fmt::{Display, Formatter},
 	str::FromStr,

@@ -1,20 +1,19 @@
 use std::str::FromStr;
 use std::sync::mpsc::Sender;
 
-use crate::args::{Domain, ForwardPath, ReversePath, Validator};
-use crate::client::Client;
-use crate::command::Command;
-use crate::message::Message;
-use crate::{Response, ResponseCode};
+use super::{
+	args::{Domain, ForwardPath, ReversePath},
+	Command, Message, Response, ResponseCode,
+};
 
-pub struct Transaction {
+pub struct Server {
 	message_sender: Sender<Message>,
 	state: State,
 	command: String,
 	message: Message,
 }
 
-impl Transaction {
+impl Server {
 	pub fn initiate(message_sender: Sender<Message>) -> (Self, Response) {
 		(
 			Self {
@@ -101,11 +100,11 @@ impl Transaction {
 				Command::Quit => self.quit(),
 			},
 			Err(err) => match err {
-				crate::command::ParseCommandError::InvalidCommand => Self::syntax_error(),
-				crate::command::ParseCommandError::InvalidPath(_) => {
+				super::command::ParseCommandError::InvalidCommand => Self::syntax_error(),
+				super::command::ParseCommandError::InvalidPath(_) => {
 					Response::with_message(ResponseCode::InvalidParameters, "Bad path")
 				}
-				crate::command::ParseCommandError::InvalidDomain(err) => {
+				super::command::ParseCommandError::InvalidDomain(err) => {
 					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
 				}
 			},

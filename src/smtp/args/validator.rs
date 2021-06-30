@@ -3,7 +3,7 @@ use std::str::FromStr;
 use pest::Parser;
 use pest_derive::*;
 
-use crate::args::Domain;
+use super::Domain;
 
 #[derive(Parser)]
 #[grammar = "smtp_grammar.pest"]

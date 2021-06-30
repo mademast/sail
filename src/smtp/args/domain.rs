@@ -1,4 +1,4 @@
-use crate::args::Validator;
+use super::Validator;
 use std::{
 	fmt::Display,
 	net::{AddrParseError, IpAddr},
