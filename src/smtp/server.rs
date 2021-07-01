@@ -9,6 +9,7 @@ use super::{
 
 pub struct Server {
 	config: Config,
+	primary_host: Domain,
 	message_sender: Sender<Message>,
 	state: State,
 	command: String,
@@ -17,15 +18,24 @@ pub struct Server {
 
 impl Server {
 	pub fn initiate(message_sender: Sender<Message>, config: Config) -> (Self, Response) {
+		let primary_host = config
+			.hostnames
+			.first()
+			.unwrap_or(&"sail".parse::<Domain>().unwrap())
+			.to_owned();
 		(
 			Self {
 				config,
+				primary_host: primary_host.clone(),
 				message_sender,
 				state: Default::default(),
 				command: Default::default(),
 				message: Default::default(),
 			},
-			Response::with_message(ResponseCode::ServiceReady, "Sail ready"),
+			Response::with_message(
+				ResponseCode::ServiceReady,
+				format!("{} (Sail) ready", primary_host),
+			),
 		)
 	}
 
@@ -120,7 +130,10 @@ impl Server {
 			State::Initiated => {
 				self.state = State::Greeted;
 
-				Response::with_message(ResponseCode::Okay, format!("sail Hello {}", client_domain))
+				Response::with_message(
+					ResponseCode::Okay,
+					format!("{} (sail) greets {}", self.primary_host, client_domain),
+				)
 			}
 			_ => Self::bad_command(),
 		}
@@ -135,8 +148,11 @@ impl Server {
 		self.rset();
 		self.state = State::Greeted;
 
-		Response::with_message(ResponseCode::Okay, format!("sail Hello {}", client_domain))
-			.push("Help")
+		Response::with_message(
+			ResponseCode::Okay,
+			format!("{} (sail) greets {}", self.primary_host, client_domain),
+		)
+		.push("Help")
 	}
 
 	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
@@ -211,7 +227,10 @@ impl Server {
 	fn quit(&mut self) -> Response {
 		self.state = State::Exit;
 
-		Response::with_message(ResponseCode::ServiceClosing, "sail Goodbye")
+		Response::with_message(
+			ResponseCode::ServiceClosing,
+			&format!("{} Goodbye", self.primary_host),
+		)
 	}
 
 	fn not_implemented() -> Response {
