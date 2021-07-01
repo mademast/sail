@@ -108,6 +108,8 @@ impl Sail {
 		}
 		println!("\n{}", data.join("\r\n"))
 	}
+
+	async fn relay(domain: Domain, message: ForeignMessage) {}
 }
 
 //runs as long as the user remains connected

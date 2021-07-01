@@ -1,15 +1,8 @@
-#[derive(Default, Clone)]
-pub struct Client {
-	state: State,
-	reply: String,
-	message: ForeignMessage,
-}
-
 use std::{collections::HashSet, net::IpAddr, time::Duration};
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
 	net::TcpStream,
-	time::timeout,
+	time::{error::Elapsed, timeout},
 };
 use trust_dns_resolver::{
 	config::{ResolverConfig, ResolverOpts},
@@ -20,6 +13,8 @@ use super::{
 	args::{Domain, ForwardPath, Path, ReversePath},
 	Command, ResponseCode,
 };
+
+use thiserror::Error;
 
 /// A small wrapper around Path as a type-checked, compile-time feature to try
 // and stop us from doing stupid things and trying to relay local messages.
@@ -61,6 +56,13 @@ impl Default for ForeignMessage {
 			data: vec![],
 		}
 	}
+}
+
+#[derive(Default, Clone)]
+pub struct Client {
+	state: State,
+	reply: String,
+	message: ForeignMessage,
 }
 
 impl Client {
@@ -138,89 +140,28 @@ impl Client {
 		}
 	}
 
-	async fn get_mx_record(fqdn: &str) -> Option<IpAddr> {
-		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).ok()?;
-
-		let mut mx_rec: Vec<(u16, String)> = resolver
-			.mx_lookup(fqdn)
-			.await
-			.ok()?
-			.iter()
-			.map(|mx| (mx.preference(), mx.exchange().to_string()))
-			.collect();
-
-		mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2));
-		let mx_domain = mx_rec.first()?.1.clone();
-		let mx_ip = resolver.lookup_ip(mx_domain).await.ok()?;
-		mx_ip.iter().next()
-	}
-
-	async fn get_ip(fqdn: &str) -> Option<IpAddr> {
-		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).ok()?;
-
-		let ip = resolver.lookup_ip(fqdn).await.ok()?;
-		ip.iter().next()
-	}
-
-	pub async fn run(message: ForeignMessage) {
-		let domains: HashSet<&Domain> = message
+	pub async fn run(address: IpAddr, message: ForeignMessage) -> Result<(), ClientError> {
+		let domain = message
 			.forward_paths
-			.iter()
-			.map(|path| &path.0.domain) //map paths to the second half of the string
-			.collect();
+			.first()
+			.ok_or(ClientError::NoForwardPaths)?
+			.0
+			.domain
+			.clone();
 
-		let mut paths_by_domain: Vec<(&Domain, Vec<ForeignPath>)> = vec![];
-
-		for domain in domains {
-			paths_by_domain.push((
-				domain,
-				message
-					.forward_paths
-					.iter()
-					.filter_map(|path| {
-						if path.0.domain == *domain {
-							Some(path.clone())
-						} else {
-							None
-						}
-					}) //filter for paths to the current domain
-					.collect(),
-			))
+		for path in &message.forward_paths {
+			if path.0.domain != domain {
+				return Err(ClientError::MismatchedDomains);
+			}
 		}
 
-		for (domain, paths) in paths_by_domain {
-			let address = match domain {
-				Domain::Literal(ip) => ip.to_owned(),
-				Domain::FQDN(domain) => {
-					if let Some(address) = Self::get_mx_record(domain).await {
-						address
-					} else if let Some(address) = Self::get_ip(domain).await {
-						address
-					} else {
-						eprintln!("No record at all found for domain {}", domain);
-						todo!() // this needs to be properly handled.
-					}
-				}
-			};
-
-			Self::send_to_ip(
-				address,
-				ForeignMessage::from_parts(
-					message.reverse_path.clone(),
-					paths,
-					message.data.clone(),
-				),
-			)
-			.await
-			.unwrap(); //TODO: handle these results and inform user about them
-		}
+		Self::send_to_ip(address, message).await.unwrap(); //TODO: handle these results and inform user about them
 
 		todo!() //TODO: send 250 if the message sent properly, otherwise a 5xx error or whatever the remote server sent
 		 //alternatively, send 250 immediately, then construct an undeliverable message
 	}
-	async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> std::io::Result<()> {
+
+	async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), ClientError> {
 		//TODO: use our own errors? send box dyn error?
 		eprintln!("{}:{}", addr, 25);
 		//todo: this one hangs interminably. why? i do not know
@@ -271,6 +212,7 @@ impl Client {
 		}
 		Ok(())
 	}
+
 	fn should_exit(&self) -> bool {
 		self.state == State::ShouldExit
 	}
@@ -290,4 +232,16 @@ impl Default for State {
 	fn default() -> Self {
 		State::Initiated
 	}
+}
+
+#[derive(Debug, Error)]
+pub enum ClientError {
+	#[error("there are no forward paths in the provided message")]
+	NoForwardPaths,
+	#[error("there were forward paths with more than one domain")]
+	MismatchedDomains,
+	#[error("timed out before reaching the server")]
+	ConnectionTimeout(#[from] Elapsed),
+	#[error("")]
+	ConnectionError(#[from] std::io::Error),
 }
