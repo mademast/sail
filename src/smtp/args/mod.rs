@@ -1,6 +1,7 @@
 mod domain;
 mod path;
 mod validator;
+mod localpart;
 
 pub use domain::*;
 pub use path::*;

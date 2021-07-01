@@ -1,4 +1,7 @@
-use super::{Domain, ParseDomainError, Validator};
+use super::{
+	localpart::{InvalidLocalPart, LocalPart},
+	Domain, ParseDomainError,
+};
 use std::{
 	fmt::{Display, Formatter},
 	str::FromStr,
@@ -7,7 +10,7 @@ use thiserror::Error;
 
 #[derive(Clone, Debug)]
 pub struct Path {
-	pub local_part: String,
+	pub local_part: LocalPart,
 	pub domain: Domain,
 }
 
@@ -25,18 +28,12 @@ pub enum ReversePath {
 
 impl Path {
 	fn parse_naked_path(naked: &str) -> Result<Self, ParsePathError> {
-		let splits = naked.rsplit_once("@");
-
-		if let Some((local_part, domain)) = splits {
+		if let Some((local_part, domain)) = naked.rsplit_once("@") {
 			// Check if it's an address literal first, and if it isn't, check if it's a domain
-			if Validator::validate_local_part(local_part) {
-				Ok(Self {
-					local_part: local_part.to_string(),
-					domain: domain.parse()?,
-				})
-			} else {
-				Err(ParsePathError::InvalidLocalPart)
-			}
+			Ok(Self {
+				local_part: local_part.parse()?,
+				domain: domain.parse()?,
+			})
 		} else {
 			Err(ParsePathError::NoAtSign)
 		}
@@ -148,7 +145,7 @@ pub enum ParsePathError {
 	#[error("Invalid ADL syntax")]
 	InvalidAdlSyntax,
 	#[error("invalid local part")]
-	InvalidLocalPart,
+	InvalidLocalPart(#[from] InvalidLocalPart),
 	#[error("invalid domain")]
 	InvalidDomain(#[from] ParseDomainError),
 }
