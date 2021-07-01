@@ -1,13 +1,11 @@
-
-
-use std::{
-	collections::HashMap,
-	sync::mpsc::{channel, Receiver, Sender},
-};
 use sail::config::Config;
 use sail::smtp::{
 	args::{Domain, ForwardPath},
 	ForeignMessage, ForeignPath, Message, Server,
+};
+use std::{
+	collections::HashMap,
+	sync::mpsc::{channel, Receiver, Sender},
 };
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
@@ -108,7 +106,7 @@ async fn serve(
 	message_sender: Sender<Message>,
 	config: Config,
 ) -> io::Result<()> {
-	let (mut transaction, inital_response) = Server::initiate(message_sender);
+	let (mut transaction, inital_response) = Server::initiate(message_sender, config);
 	stream
 		.write_all(inital_response.as_string().as_bytes())
 		.await?;
@@ -159,11 +157,13 @@ async fn main() {
 	let config = match port {
 		25 => Config {
 			hostnames: vec!["localhost".parse().unwrap()],
+			relays: vec!["nove.dev".parse().unwrap(), "genbyte.dev".parse().unwrap()],
 			users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
 		},
 		_ => Config {
 			hostnames: vec![],
 			users: vec![],
+			relays: vec![],
 		},
 	};
 

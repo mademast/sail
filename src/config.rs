@@ -4,6 +4,7 @@ use crate::smtp::args::{Domain, ForwardPath, LocalPart, Path};
 pub struct Config {
 	//TODO: Properly load a config and don't have this be public!
 	pub hostnames: Vec<Domain>,
+	pub relays: Vec<Domain>,
 	pub users: Vec<LocalPart>,
 }
 

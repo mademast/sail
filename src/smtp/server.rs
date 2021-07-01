@@ -1,11 +1,14 @@
 use std::sync::mpsc::Sender;
 
+use crate::config::Config;
+
 use super::{
 	args::{Domain, ForwardPath, ReversePath},
 	Command, Message, Response, ResponseCode,
 };
 
 pub struct Server {
+	config: Config,
 	message_sender: Sender<Message>,
 	state: State,
 	command: String,
@@ -13,9 +16,10 @@ pub struct Server {
 }
 
 impl Server {
-	pub fn initiate(message_sender: Sender<Message>) -> (Self, Response) {
+	pub fn initiate(message_sender: Sender<Message>, config: Config) -> (Self, Response) {
 		(
 			Self {
+				config,
 				message_sender,
 				state: Default::default(),
 				command: Default::default(),
@@ -166,13 +170,29 @@ impl Server {
 
 	fn rcpt(&mut self, forward_path: &ForwardPath) -> Response {
 		if self.state == State::GotReversePath || self.state == State::GotForwardPath {
-			self.state = State::GotForwardPath;
-			self.message.forward_paths.push(forward_path.to_owned());
-
-			Response::with_message(ResponseCode::Okay, "Okay")
+			match forward_path {
+				ForwardPath::Postmaster => self.add_rcpt(forward_path),
+				ForwardPath::Regular(path) => {
+					if self.config.relays.contains(&path.domain)
+						|| self.config.hostnames.contains(&path.domain)
+							&& self.config.users.contains(&path.local_part)
+					{
+						self.add_rcpt(forward_path)
+					} else {
+						Self::bad_command() //todo: correct responses
+					}
+				}
+			}
 		} else {
 			Self::bad_command()
 		}
+	}
+
+	fn add_rcpt(&mut self, forward_path: &ForwardPath) -> Response {
+		self.state = State::GotForwardPath;
+		self.message.forward_paths.push(forward_path.to_owned());
+
+		Response::with_message(ResponseCode::Okay, "Okay")
 	}
 
 	fn rset(&mut self) -> Response {

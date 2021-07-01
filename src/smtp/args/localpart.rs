@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use super::Validator;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LocalPart(String);
 
 impl std::fmt::Display for LocalPart {
