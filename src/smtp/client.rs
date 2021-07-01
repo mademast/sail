@@ -1,16 +1,12 @@
-use std::{collections::HashSet, net::IpAddr, time::Duration};
+use std::{net::IpAddr, time::Duration};
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
 	net::TcpStream,
 	time::{error::Elapsed, timeout},
 };
-use trust_dns_resolver::{
-	config::{ResolverConfig, ResolverOpts},
-	TokioAsyncResolver,
-};
 
 use super::{
-	args::{Domain, ForwardPath, Path, ReversePath},
+	args::{ForwardPath, Path, ReversePath},
 	Command, ResponseCode,
 };
 

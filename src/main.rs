@@ -2,12 +2,9 @@ mod config;
 mod dns;
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::HashMap,
 	str::FromStr,
-	sync::{
-		mpsc::{channel, Receiver, Sender},
-		Arc,
-	},
+	sync::mpsc::{channel, Receiver, Sender},
 };
 
 use config::Config;
@@ -56,26 +53,21 @@ impl Sail {
 			.filter(|forward| {
 				if self.config.forward_path_is_local(&forward) {
 					true // locals stay in the vec
-				} else {
-					if let ForwardPath::Regular(path) = forward {
-						// get the vector for a specific domain, but if there isn't one, make it.
-						match foreign_map.get_mut(&path.domain) {
-							Some(vec) => vec.push(ForeignPath { 0: path.clone() }),
-							None => {
-								foreign_map.insert(
-									path.domain.clone(),
-									vec![ForeignPath { 0: path.clone() }],
-								);
-								()
-							}
+				} else if let ForwardPath::Regular(path) = forward {
+					// get the vector for a specific domain, but if there isn't one, make it.
+					match foreign_map.get_mut(&path.domain) {
+						Some(vec) => vec.push(ForeignPath { 0: path.clone() }),
+						None => {
+							foreign_map
+								.insert(path.domain.clone(), vec![ForeignPath { 0: path.clone() }]);
 						}
-
-						false
-					} else {
-						// should've been caught by forward_path_is_local, maybe
-						// print a warning if we reach here?
-						true
 					}
+
+					false
+				} else {
+					// should've been caught by forward_path_is_local, maybe
+					// print a warning if we reach here?
+					true
 				}
 			})
 			.collect();
