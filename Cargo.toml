@@ -8,7 +8,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-recursion = "0.3.2"
 pest = "2.1" # Parsing
 pest_derive = "2.1"
 tokio = { version = "1", features = ["full"] }

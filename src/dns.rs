@@ -1,7 +1,5 @@
 use std::net::IpAddr;
 
-use async_recursion::async_recursion;
-use sail::smtp::args::Domain;
 use thiserror::Error;
 use trust_dns_resolver::{
 	config::{ResolverConfig, ResolverOpts},
@@ -19,7 +17,7 @@ pub struct DnsLookup {
 }
 
 impl DnsLookup {
-	pub async fn mx_records(fqdn: &str) -> Result<Self, DnsLookupError> {
+	pub async fn new(fqdn: &str) -> Result<Self, DnsLookupError> {
 		let resolver =
 			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())?;
 
@@ -38,19 +36,15 @@ impl DnsLookup {
 		})
 	}
 
-	#[async_recursion]
 	pub async fn next_address(&mut self) -> Result<IpAddr, DnsLookupError> {
-		match self.ip_addresses.pop() {
-			Some(addr) => Ok(addr),
-			None => {
-				let domain = self.mx_records.pop().ok_or(DnsLookupError::NoMoreRecords)?;
-				self.ip_addresses = Self::get_addresses(&domain).await?;
-
-				// We recur here because get_addresses could return a Vec with
-				// nothing in it, so we'd have to try again. Our saftey, so we
-				// don't recur forever, is that we pop from self.mx_records and
-				// return an error if we don't have any more.
-				self.next_address().await
+		loop {
+			match self.ip_addresses.pop() {
+				Some(addr) => return Ok(addr),
+				None => {
+					let domain = self.mx_records.pop().ok_or(DnsLookupError::NoMoreRecords)?;
+					self.ip_addresses = Self::get_addresses(&domain).await?;
+					continue;
+				}
 			}
 		}
 	}
