@@ -1,12 +1,10 @@
-mod config;
-mod dns;
+
 
 use std::{
 	collections::HashMap,
 	sync::mpsc::{channel, Receiver, Sender},
 };
-
-use config::Config;
+use sail::config::Config;
 use sail::smtp::{
 	args::{Domain, ForwardPath},
 	ForeignMessage, ForeignPath, Message, Server,

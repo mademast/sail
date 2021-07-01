@@ -1,4 +1,4 @@
-use sail::smtp::args::{Domain, ForwardPath, LocalPart, Path};
+use crate::smtp::args::{Domain, ForwardPath, LocalPart, Path};
 
 #[derive(Clone)]
 pub struct Config {
