@@ -1,9 +1,10 @@
-use sail::smtp::args::{Domain, ForwardPath, Path};
+use sail::smtp::args::{Domain, ForwardPath, LocalPart, Path};
 
 #[derive(Clone)]
 pub struct Config {
 	//TODO: Properly load a config and don't have this be public!
 	pub hostnames: Vec<Domain>,
+	pub users: Vec<LocalPart>,
 }
 
 impl Config {

@@ -6,6 +6,7 @@ mod localpart;
 pub use domain::*;
 pub use path::*;
 pub use validator::*;
+pub use localpart::*;
 
 #[cfg(test)]
 mod test {

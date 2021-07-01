@@ -161,11 +161,11 @@ async fn main() {
 	let config = match port {
 		25 => Config {
 			hostnames: vec!["localhost".parse().unwrap()],
-			// users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
+			users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
 		},
 		_ => Config {
 			hostnames: vec![],
-			// users: vec![],
+			users: vec![],
 		},
 	};
 
