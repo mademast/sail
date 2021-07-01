@@ -3,7 +3,6 @@ mod dns;
 
 use std::{
 	collections::HashMap,
-	str::FromStr,
 	sync::mpsc::{channel, Receiver, Sender},
 };
 
@@ -106,7 +105,11 @@ impl Sail {
 
 //runs as long as the user remains connected
 // handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
-async fn serve(mut stream: TcpStream, message_sender: Sender<Message>) -> io::Result<()> {
+async fn serve(
+	mut stream: TcpStream,
+	message_sender: Sender<Message>,
+	config: Config,
+) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(message_sender);
 	stream
 		.write_all(inital_response.as_string().as_bytes())
@@ -135,13 +138,13 @@ async fn serve(mut stream: TcpStream, message_sender: Sender<Message>) -> io::Re
 }
 
 //waits for new connections, dispatches new task to handle each new inbound connection
-async fn listen(listener: TcpListener, message_sender: Sender<Message>) {
+async fn listen(listener: TcpListener, message_sender: Sender<Message>, config: Config) {
 	loop {
 		let (stream, clientaddr) = listener.accept().await.unwrap();
 
 		println!("connection from {}", clientaddr);
 
-		tokio::spawn(serve(stream, message_sender.clone()));
+		tokio::spawn(serve(stream, message_sender.clone(), config.clone()));
 	}
 }
 
@@ -157,20 +160,24 @@ async fn main() {
 	// Quick, bad config based on port for testing
 	let config = match port {
 		25 => Config {
-			hostnames: vec![Domain::from_str("localhost").unwrap()],
+			hostnames: vec!["localhost".parse().unwrap()],
+			// users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
 		},
-		_ => Config { hostnames: vec![] },
+		_ => Config {
+			hostnames: vec![],
+			// users: vec![],
+		},
 	};
 
 	let (sender, receiver) = channel();
 	let sail = Sail {
-		config,
+		config: config.clone(),
 		local_messages: vec![],
 		foreign_messages: vec![],
 	};
 
 	let receive_task = tokio::spawn(sail.receive_messages(receiver));
-	let listen_task = tokio::spawn(listen(listener, sender));
+	let listen_task = tokio::spawn(listen(listener, sender, config));
 
 	// Maybe we join or something? At some point we have to handle graceful shutdowns
 	// so we'd need to handle that somehow. Some way to tell both things to shutdown.

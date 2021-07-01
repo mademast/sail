@@ -1,5 +1,6 @@
 use sail::smtp::args::{Domain, ForwardPath, Path};
 
+#[derive(Clone)]
 pub struct Config {
 	//TODO: Properly load a config and don't have this be public!
 	pub hostnames: Vec<Domain>,
