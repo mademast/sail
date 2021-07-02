@@ -1,43 +1,74 @@
+use std::{net::IpAddr, time::Duration};
+use tokio::{
+	io::{AsyncReadExt, AsyncWriteExt},
+	net::TcpStream,
+	time::{error::Elapsed, timeout},
+};
+
+use super::{
+	args::{ForwardPath, Path, ReversePath},
+	Command, ResponseCode,
+};
+
+use thiserror::Error;
+
+/// A small wrapper around Path as a type-checked, compile-time feature to try
+// and stop us from doing stupid things and trying to relay local messages.
+#[derive(Debug, Clone)]
+pub struct ForeignPath(pub Path);
+
+impl From<ForeignPath> for ForwardPath {
+	fn from(other: ForeignPath) -> Self {
+		Self::Regular(other.0)
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct ForeignMessage {
+	pub reverse_path: ReversePath,
+	pub forward_paths: Vec<ForeignPath>,
+	pub data: Vec<String>,
+}
+
+impl ForeignMessage {
+	pub fn from_parts(
+		reverse_path: ReversePath,
+		forward_paths: Vec<ForeignPath>,
+		data: Vec<String>,
+	) -> Self {
+		Self {
+			reverse_path,
+			forward_paths,
+			data,
+		}
+	}
+}
+
+impl Default for ForeignMessage {
+	fn default() -> Self {
+		Self {
+			reverse_path: ReversePath::Null,
+			forward_paths: vec![],
+			data: vec![],
+		}
+	}
+}
+
 #[derive(Default, Clone)]
 pub struct Client {
 	state: State,
 	reply: String,
-	message: Message,
+	message: ForeignMessage,
 }
 
-use std::{collections::HashSet, net::IpAddr, str::FromStr, time::Duration};
-use tokio::{
-	io::{AsyncReadExt, AsyncWriteExt},
-	net::TcpStream,
-	time::timeout,
-};
-use trust_dns_resolver::{
-	config::{ResolverConfig, ResolverOpts},
-	TokioAsyncResolver,
-};
-
-use crate::{
-	args::{Domain, ForwardPath, Path, ReversePath},
-	command::Command,
-	message::Message,
-	response::ResponseCode,
-};
-
 impl Client {
-	pub fn initiate(
-		forward_paths: Vec<ForwardPath>, //todo: make this paths? handle postmaster higher up?
-		reverse_path: ReversePath,
-		data: Vec<String>,
-	) -> Self {
+	pub fn initiate(message: ForeignMessage) -> Self {
 		Self {
-			message: Message {
-				reverse_path,
-				forward_paths,
-				data,
-			},
+			message,
 			..Default::default()
 		}
 	}
+
 	pub fn push(&mut self, reply: &str) -> Option<Command> {
 		self.reply.push_str(reply);
 
@@ -49,14 +80,15 @@ impl Client {
 
 		self.process_reply()
 	}
+
 	fn process_reply(&mut self) -> Option<Command> {
 		if self.reply.len() < 3 || !self.reply.is_ascii() {
 			return None;
 		}
-		let (code, text) = self.reply.split_at(3);
+		let code = self.reply.split_at(3).0;
 
 		//todo: parse multiline replies e.g. ehlo
-		//todo: parse unknown response codes according to their first digit
+		//todo: handle the unknown response codes
 		let code = ResponseCode::from_code(code.parse().ok()?)?;
 
 		match self.state {
@@ -77,7 +109,7 @@ impl Client {
 			State::SentReversePath => match code {
 				ResponseCode::Okay => {
 					self.state = State::SendingForwardPaths;
-					Some(Command::Rcpt(self.message.forward_paths.pop()?))
+					Some(Command::Rcpt(self.message.forward_paths.pop()?.into()))
 				}
 				_ => todo!(),
 			},
@@ -85,7 +117,7 @@ impl Client {
 				if let Some(path) = self.message.forward_paths.pop() {
 					match code {
 						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
-							Some(Command::Rcpt(path))
+							Some(Command::Rcpt(path.into()))
 						}
 						_ => todo!(),
 					}
@@ -104,103 +136,28 @@ impl Client {
 		}
 	}
 
-	async fn get_mx_record(fqdn: &str) -> Option<IpAddr> {
-		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).ok()?;
-		let mut mx_rec: Vec<(u16, String)> = resolver
-			.mx_lookup(fqdn)
-			.await
-			.ok()?
-			.iter()
-			.map(|mx| (mx.preference(), mx.exchange().to_string()))
-			.collect();
-		mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2));
-		let mx_domain = mx_rec.first()?.1.clone();
-		let mx_ip = resolver.lookup_ip(mx_domain).await.ok()?;
-		mx_ip.iter().next()
-	}
-
-	async fn get_ip(fqdn: &str) -> Option<IpAddr> {
-		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default()).ok()?;
-
-		let ip = resolver.lookup_ip(fqdn).await.ok()?;
-		ip.iter().next()
-	}
-
-	fn postmaster(message: Message) {
-		todo!() //save to disk? what to do with postmaster stuff
-	}
-
-	pub async fn run(message: Message) {
-		let domains: HashSet<&Domain> = message
+	pub async fn run(address: IpAddr, message: ForeignMessage) -> Result<(), ClientError> {
+		let domain = message
 			.forward_paths
-			.iter()
-			.filter_map(|path| match path {
-				ForwardPath::Postmaster => {
-					Self::postmaster(message.clone());
-					None
-				}
-				ForwardPath::Regular(path) => Some(&path.domain),
-			}) //map paths to the second half of the string
-			.collect();
+			.first()
+			.ok_or(ClientError::NoForwardPaths)?
+			.0
+			.domain
+			.clone();
 
-		let mut paths_by_domain: Vec<(&Domain, Vec<&Path>)> = vec![];
-
-		for domain in domains {
-			paths_by_domain.push((
-				domain,
-				message
-					.forward_paths
-					.iter()
-					.filter_map(|path| match path {
-						ForwardPath::Postmaster => None,
-						ForwardPath::Regular(path) => {
-							if path.domain == *domain {
-								Some(path)
-							} else {
-								None
-							}
-						}
-					}) //filter for paths to the current domain
-					.collect(),
-			))
+		for path in &message.forward_paths {
+			if path.0.domain != domain {
+				return Err(ClientError::MismatchedDomains);
+			}
 		}
 
-		for (domain, paths) in paths_by_domain {
-			let address = match domain {
-				Domain::Literal(ip) => ip.to_owned(),
-				Domain::FQDN(domain) => {
-					if let Some(address) = Self::get_mx_record(domain).await {
-						address
-					} else if let Some(address) = Self::get_ip(domain).await {
-						address
-					} else {
-						eprintln!("No record at all found for domain {}", domain);
-						todo!() // this needs to be properly handled.
-					}
-				}
-			};
-
-			Self::send_to_ip(
-				address,
-				paths,
-				message.reverse_path.clone(),
-				message.data.clone(),
-			)
-			.await
-			.unwrap(); //TODO: handle these results and inform user about them
-		}
+		Self::send_to_ip(address, message).await.unwrap(); //TODO: handle these results and inform user about them
 
 		todo!() //TODO: send 250 if the message sent properly, otherwise a 5xx error or whatever the remote server sent
 		 //alternatively, send 250 immediately, then construct an undeliverable message
 	}
-	async fn send_to_ip(
-		addr: IpAddr,
-		paths: Vec<&Path>,
-		reverse_path: ReversePath,
-		data: Vec<String>,
-	) -> std::io::Result<()> {
+
+	async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), ClientError> {
 		//TODO: use our own errors? send box dyn error?
 		eprintln!("{}:{}", addr, 25);
 		//todo: this one hangs interminably. why? i do not know
@@ -212,14 +169,7 @@ impl Client {
 		)
 		.await??;
 
-		let mut client = Self::initiate(
-			paths
-				.into_iter()
-				.map(|path| ForwardPath::Regular(path.clone()))
-				.collect(),
-			reverse_path,
-			data,
-		);
+		let mut client = Self::initiate(message);
 
 		let mut buf = vec![0; 1024];
 
@@ -258,6 +208,7 @@ impl Client {
 		}
 		Ok(())
 	}
+
 	fn should_exit(&self) -> bool {
 		self.state == State::ShouldExit
 	}
@@ -277,4 +228,16 @@ impl Default for State {
 	fn default() -> Self {
 		State::Initiated
 	}
+}
+
+#[derive(Debug, Error)]
+pub enum ClientError {
+	#[error("there are no forward paths in the provided message")]
+	NoForwardPaths,
+	#[error("there were forward paths with more than one domain")]
+	MismatchedDomains,
+	#[error("timed out before reaching the server")]
+	ConnectionTimeout(#[from] Elapsed),
+	#[error("")]
+	ConnectionError(#[from] std::io::Error),
 }

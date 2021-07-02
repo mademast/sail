@@ -1,4 +1,4 @@
-use crate::args::{Domain, ForwardPath, ParseDomainError, ParsePathError, ReversePath};
+use super::args::{Domain, ForwardPath, ParseDomainError, ParsePathError, ReversePath};
 use thiserror::Error;
 
 pub enum Command {

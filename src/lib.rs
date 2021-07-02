@@ -1,9 +1,3 @@
-pub mod args;
-mod client;
-mod command;
-mod message;
-mod response;
-mod transaction;
-
-pub use response::{Response, ResponseCode};
-pub use transaction::Transaction;
+pub mod config;
+pub mod dns;
+pub mod smtp;

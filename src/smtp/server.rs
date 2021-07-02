@@ -1,27 +1,45 @@
-use std::str::FromStr;
+use std::sync::mpsc::Sender;
 
-use crate::args::{Domain, ForwardPath, ReversePath, Validator};
-use crate::client::Client;
-use crate::command::Command;
-use crate::message::Message;
-use crate::{Response, ResponseCode};
+use crate::config::Config;
 
-#[derive(Default)]
-pub struct Transaction {
+use super::{
+	args::{Domain, ForwardPath, ReversePath},
+	Command, Message, Response, ResponseCode,
+};
+
+pub struct Server {
+	config: Config,
+	primary_host: Domain,
+	message_sender: Sender<Message>,
 	state: State,
 	command: String,
 	message: Message,
 }
 
-impl Transaction {
-	pub fn initiate() -> (Self, Response) {
+impl Server {
+	pub fn initiate(message_sender: Sender<Message>, config: Config) -> (Self, Response) {
+		let primary_host = config
+			.hostnames
+			.first()
+			.unwrap_or(&"sail".parse::<Domain>().unwrap())
+			.to_owned();
 		(
-			Default::default(),
-			Response::with_message(ResponseCode::ServiceReady, "Sail ready"),
+			Self {
+				config,
+				primary_host: primary_host.clone(),
+				message_sender,
+				state: Default::default(),
+				command: Default::default(),
+				message: Default::default(),
+			},
+			Response::with_message(
+				ResponseCode::ServiceReady,
+				format!("{} (Sail) ready", primary_host),
+			),
 		)
 	}
 
-	pub async fn push(&mut self, line: &str) -> Option<Response> {
+	pub fn push(&mut self, line: &str) -> Option<Response> {
 		self.command.push_str(line);
 
 		// Return early if it's not a line
@@ -30,15 +48,15 @@ impl Transaction {
 		}
 
 		if self.state == State::LoadingData {
-			let resp = self.loading_data().await;
+			let resp = self.loading_data();
 			self.command.clear();
 
 			resp
 		} else {
-			let resp = Some(self.run_command());
+			let resp = self.run_command();
 			self.command.clear();
 
-			resp
+			Some(resp)
 		}
 	}
 
@@ -46,10 +64,10 @@ impl Transaction {
 		self.state == State::Exit
 	}
 
-	async fn loading_data(&mut self) -> Option<Response> {
+	fn loading_data(&mut self) -> Option<Response> {
 		if self.command == ".\r\n" {
 			// Data is complete
-			Some(self.got_data().await)
+			Some(self.got_data())
 		//transparency to allow clients to send \r\n.\r\n without breaking SMTP
 		} else if self.command.starts_with('.') {
 			self.message.data.push(self.command[1..].to_string());
@@ -60,12 +78,14 @@ impl Transaction {
 		}
 	}
 
-	//TODO: Check that the data is valid! (rfc 5322)
-	async fn got_data(&mut self) -> Response {
-		println!("{}", self.message.data.join("\r\n"));
-		Client::run(self.message.clone()).await;
-		//todo: serialize into a file (serde, perhaps?) and pass off to the client process
-		//alternatively, pass into a thread that we spawn here to handle that. That might be the better option?
+	fn got_data(&mut self) -> Response {
+		//TODO: Fail here if the mail data fails verification as per RFC 5322
+
+		//TODO: Instead of this bad expect, send an error to the client. This is our fault,
+		//it'll be one of the 500s.
+		self.message_sender
+			.send(self.message.clone())
+			.expect("Failed to send message");
 
 		self.rset();
 		self.state = State::Greeted;
@@ -93,11 +113,11 @@ impl Transaction {
 				Command::Quit => self.quit(),
 			},
 			Err(err) => match err {
-				crate::command::ParseCommandError::InvalidCommand => Self::syntax_error(),
-				crate::command::ParseCommandError::InvalidPath(_) => {
+				super::command::ParseCommandError::InvalidCommand => Self::syntax_error(),
+				super::command::ParseCommandError::InvalidPath(_) => {
 					Response::with_message(ResponseCode::InvalidParameters, "Bad path")
 				}
-				crate::command::ParseCommandError::InvalidDomain(err) => {
+				super::command::ParseCommandError::InvalidDomain(err) => {
 					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
 				}
 			},
@@ -110,7 +130,10 @@ impl Transaction {
 			State::Initiated => {
 				self.state = State::Greeted;
 
-				Response::with_message(ResponseCode::Okay, format!("sail Hello {}", client_domain))
+				Response::with_message(
+					ResponseCode::Okay,
+					format!("{} (sail) greets {}", self.primary_host, client_domain),
+				)
 			}
 			_ => Self::bad_command(),
 		}
@@ -125,8 +148,11 @@ impl Transaction {
 		self.rset();
 		self.state = State::Greeted;
 
-		Response::with_message(ResponseCode::Okay, format!("sail Hello {}", client_domain))
-			.push("Help")
+		Response::with_message(
+			ResponseCode::Okay,
+			format!("{} (sail) greets {}", self.primary_host, client_domain),
+		)
+		.push("Help")
 	}
 
 	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
@@ -160,13 +186,29 @@ impl Transaction {
 
 	fn rcpt(&mut self, forward_path: &ForwardPath) -> Response {
 		if self.state == State::GotReversePath || self.state == State::GotForwardPath {
-			self.state = State::GotForwardPath;
-			self.message.forward_paths.push(forward_path.to_owned());
-
-			Response::with_message(ResponseCode::Okay, "Okay")
+			match forward_path {
+				ForwardPath::Postmaster => self.add_rcpt(forward_path),
+				ForwardPath::Regular(path) => {
+					if self.config.relays.contains(&path.domain)
+						|| self.config.hostnames.contains(&path.domain)
+							&& self.config.users.contains(&path.local_part)
+					{
+						self.add_rcpt(forward_path)
+					} else {
+						Self::bad_command() //todo: correct responses
+					}
+				}
+			}
 		} else {
 			Self::bad_command()
 		}
+	}
+
+	fn add_rcpt(&mut self, forward_path: &ForwardPath) -> Response {
+		self.state = State::GotForwardPath;
+		self.message.forward_paths.push(forward_path.to_owned());
+
+		Response::with_message(ResponseCode::Okay, "Okay")
 	}
 
 	fn rset(&mut self) -> Response {
@@ -185,7 +227,10 @@ impl Transaction {
 	fn quit(&mut self) -> Response {
 		self.state = State::Exit;
 
-		Response::with_message(ResponseCode::ServiceClosing, "sail Goodbye")
+		Response::with_message(
+			ResponseCode::ServiceClosing,
+			&format!("{} Goodbye", self.primary_host),
+		)
 	}
 
 	fn not_implemented() -> Response {

@@ -3,10 +3,10 @@ use std::str::FromStr;
 use pest::Parser;
 use pest_derive::*;
 
-use crate::args::Domain;
+use super::Domain;
 
 #[derive(Parser)]
-#[grammar = "smtp_grammar.pest"]
+#[grammar = "smtp/args/smtp_grammar.pest"]
 pub struct GrammarParser;
 
 pub struct Validator;
@@ -19,8 +19,6 @@ impl Validator {
 		GrammarParser::parse(Rule::validate_domain, domain).is_ok()
 	}
 
-	//TODO: Accept address literals as they appear for RFC5321. We need to
-	//handle general literals as well as IPV6 having "IPv6:" before it
 	pub fn validate_mailbox(mailbox: &str) -> bool {
 		let splits = mailbox.rsplit_once("@");
 

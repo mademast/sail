@@ -1,11 +1,11 @@
-use crate::args::Validator;
+use super::Validator;
 use std::{
 	fmt::Display,
 	net::{AddrParseError, IpAddr},
 };
 use thiserror::Error;
 
-#[derive(Clone, Hash, PartialEq, Eq)]
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub enum Domain {
 	FQDN(String),
 	Literal(IpAddr),
