@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use super::{
 	args::{ForwardPath, Path, ReversePath},
-	Command::{self, *},
+	Command::*,
 	ResponseCode,
 };
 
@@ -70,8 +70,6 @@ impl Client {
 			return None;
 		}
 
-		//todo: process shouldExit and sendingData state variants
-
 		self.process_reply()
 	}
 
@@ -85,27 +83,25 @@ impl Client {
 		//todo: handle the unknown response codes
 		let code = ResponseCode::from_code(code.parse().ok()?)?;
 
-		match self.state {
+		Some(match self.state {
 			State::Initiated => match code {
 				ResponseCode::ServiceReady => {
 					self.state = State::Greeted;
-					Some(Output::Command(Ehlo("Sail".parse().unwrap()))) //todo: use actual hostname, not Sail
+					Output::Command(Ehlo("Sail".parse().unwrap())) //todo: use actual hostname, not Sail
 				}
 				_ => todo!(),
 			},
 			State::Greeted => match code {
 				ResponseCode::Okay => {
 					self.state = State::SentReversePath;
-					Some(Output::Command(Mail(self.message.reverse_path.clone())))
+					Output::Command(Mail(self.message.reverse_path.clone()))
 				}
 				_ => todo!(),
 			},
 			State::SentReversePath => match code {
 				ResponseCode::Okay => {
 					self.state = State::SendingForwardPaths;
-					Some(Output::Command(Rcpt(
-						self.message.forward_paths.pop()?.into(),
-					)))
+					Output::Command(Rcpt(self.message.forward_paths.pop()?.into()))
 				}
 				_ => todo!(),
 			},
@@ -113,7 +109,7 @@ impl Client {
 				if let Some(path) = self.message.forward_paths.pop() {
 					match code {
 						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
-							Some(Output::Command(Rcpt(path.into())))
+							Output::Command(Rcpt(path.into()))
 						}
 						_ => todo!(),
 					}
@@ -121,7 +117,7 @@ impl Client {
 					match code {
 						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
 							self.state = State::SentForwardPaths;
-							Some(Output::Command(Data))
+							Output::Command(Data)
 						}
 						_ => todo!(),
 					}
@@ -130,19 +126,19 @@ impl Client {
 			State::SentForwardPaths => match code {
 				ResponseCode::StartMailInput => {
 					self.state = State::SentData;
-					Some(Output::Data(self.message.data.clone()))
+					Output::Data(self.message.data.clone())
 				}
 				_ => todo!(),
 			},
 			State::SentData => match code {
 				ResponseCode::Okay => {
 					self.state = State::ShouldExit;
-					Some(Output::Command(Quit))
+					Output::Command(Quit)
 				}
 				_ => todo!(),
 			},
 			State::ShouldExit => unreachable!(),
-		}
+		})
 	}
 
 	pub fn should_exit(&self) -> bool {
@@ -168,7 +164,7 @@ impl Default for State {
 }
 
 pub enum Output {
-	Command(Command),
+	Command(super::Command),
 	Data(Vec<String>),
 }
 
