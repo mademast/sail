@@ -10,7 +10,10 @@ use tokio::{
 
 use crate::{
 	config::Config,
-	smtp::{args::Domain, Client, ForeignMessage, Message, Server},
+	smtp::{
+		args::{Domain, ReversePath},
+		Client, ForeignMessage, Message, Server,
+	},
 };
 
 use self::dns::DnsLookup;
@@ -62,7 +65,18 @@ pub async fn listen(listener: TcpListener, message_sender: Sender<Message>, conf
 	}
 }
 
-pub async fn relay(domain: Domain, message: ForeignMessage) {
+pub async fn relay(domain: Domain, message: ForeignMessage, sender: Sender<Message>) {
+	match run(domain, message.clone()).await {
+		Ok(()) => return,
+		Err(err) => {
+			if let ReversePath::Regular(path) = message.reverse_path {
+				sender.send(Message::undeliverable(vec![err.to_string()], path));
+			}
+		}
+	}
+}
+
+async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> {
 	let ip = match &domain {
 		Domain::FQDN(domain) => DnsLookup::new(&domain.to_string())
 			.await
@@ -72,22 +86,13 @@ pub async fn relay(domain: Domain, message: ForeignMessage) {
 			.unwrap(),
 		Domain::Literal(ip) => ip.to_owned(),
 	};
-
-	run(ip, domain, message).await.unwrap()
-}
-
-async fn run(
-	address: IpAddr,
-	domain: Domain,
-	message: ForeignMessage,
-) -> Result<(), RelayError> {
 	for path in &message.forward_paths {
 		if path.0.domain != domain {
 			return Err(RelayError::MismatchedDomains);
 		}
 	}
 
-	send_to_ip(address, message).await.unwrap(); //TODO: handle these results and inform user about them
+	send_to_ip(ip, message).await?;
 
 	todo!() //TODO: send 250 if the message sent properly, otherwise a 5xx error or whatever the remote server sent
 	    //alternatively, send 250 immediately, then construct an undeliverable message

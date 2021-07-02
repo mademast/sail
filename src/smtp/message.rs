@@ -1,4 +1,4 @@
-use super::args::{ForwardPath, ReversePath};
+use super::args::{ForwardPath, Path, ReversePath};
 
 #[derive(Default, Clone, Debug)]
 pub struct Message {
@@ -9,23 +9,19 @@ pub struct Message {
 
 impl Message {
 	pub fn into_parts(self) -> (ReversePath, Vec<ForwardPath>, Vec<String>) {
-		match self {
-			Message {
-				reverse_path,
-				forward_paths,
-				data,
-			} => (reverse_path, forward_paths, data),
-		}
+		let Message {
+			reverse_path,
+			forward_paths,
+			data,
+		} = self;
+		(reverse_path, forward_paths, data)
 	}
 
-	pub fn undeliverable(reasons: Vec<String>, reverse_path: ReversePath) -> Option<Self> {
-		match reverse_path {
-			ReversePath::Null => None,
-			ReversePath::Regular(path) => Some(Self {
-				reverse_path: ReversePath::Null,
-				forward_paths: vec![ForwardPath::Regular(path)],
-				data: reasons,
-			}),
+	pub fn undeliverable(reasons: Vec<String>, reverse_path: Path) -> Self {
+		Self {
+			reverse_path: ReversePath::Null,
+			forward_paths: vec![ForwardPath::Regular(reverse_path)],
+			data: reasons,
 		}
 	}
 }

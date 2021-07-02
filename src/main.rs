@@ -6,12 +6,13 @@ use sail::smtp::{
 };
 use std::collections::HashMap;
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 struct Sail {
 	config: Config,
 	local_messages: Vec<Message>,
 	foreign_messages: Vec<(Domain, ForeignMessage)>,
+	sender: UnboundedSender<Message>,
 }
 
 impl Sail {
@@ -22,7 +23,7 @@ impl Sail {
 				.await
 				.expect("No more senders, what happened?"); //TODO: Not this! Handle the error
 
-			self.handle_message(message).await;
+			self.handle_message(message);
 
 			//Here we'd check if we relay or save and act appropriately. but FIRST we should write
 			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
@@ -37,7 +38,7 @@ impl Sail {
 	}
 
 	// filters local messages from foreign (to be relayed) messages
-	async fn handle_message(&self, message: Message) {
+	fn handle_message(&self, message: Message) {
 		let (reverse, forwards, data) = message.into_parts();
 
 		let mut foreign_map: HashMap<Domain, Vec<ForeignPath>> = HashMap::new();
@@ -75,19 +76,19 @@ impl Sail {
 			})
 			.collect();
 
-		tokio::spawn(Self::deliver_local(Message {
-			reverse_path: reverse.clone(),
+		Self::deliver_local(Message {
+			reverse_path: reverse,
 			forward_paths: locals,
-			data: data.clone(),
-		}));
+			data,
+		});
 
 		for (domain, message) in domains_messages {
-			tokio::spawn(relay(domain, message));
+			tokio::spawn(relay(domain, message, self.sender.clone()));
 		}
 	}
 
 	//todo: something other than this? we'd need a database of users and whatnot, though
-	async fn deliver_local(message: Message) {
+	fn deliver_local(message: Message) {
 		let (reverse, forwards, data) = message.into_parts();
 
 		print!("REVERSE: {}\nLOCAL TO:", reverse);
@@ -126,6 +127,7 @@ async fn main() {
 		config: config.clone(),
 		local_messages: vec![],
 		foreign_messages: vec![],
+		sender: sender.clone(),
 	};
 
 	let receive_task = tokio::spawn(sail.receive_messages(receiver));
