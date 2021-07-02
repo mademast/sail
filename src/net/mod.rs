@@ -13,6 +13,8 @@ use crate::{
 	smtp::{args::Domain, Client, ForeignMessage, Message, Server},
 };
 
+use self::dns::DnsLookup;
+
 pub mod dns;
 
 //runs as long as the user remains connected
@@ -60,17 +62,25 @@ pub async fn listen(listener: TcpListener, message_sender: Sender<Message>, conf
 	}
 }
 
-pub async fn relay(domain: Domain, message: ForeignMessage) {}
+pub async fn relay(domain: Domain, message: ForeignMessage) {
+	let ip = match &domain {
+		Domain::FQDN(domain) => DnsLookup::new(&domain.to_string())
+			.await
+			.unwrap()
+			.next_address()
+			.await
+			.unwrap(),
+		Domain::Literal(ip) => ip.to_owned(),
+	};
 
-pub async fn run(address: IpAddr, message: ForeignMessage) -> Result<(), RelayError> {
-	let domain = message
-		.forward_paths
-		.first()
-		.ok_or(RelayError::NoForwardPaths)?
-		.0
-		.domain
-		.clone();
+	run(ip, domain, message).await.unwrap()
+}
 
+async fn run(
+	address: IpAddr,
+	domain: Domain,
+	message: ForeignMessage,
+) -> Result<(), RelayError> {
 	for path in &message.forward_paths {
 		if path.0.domain != domain {
 			return Err(RelayError::MismatchedDomains);
@@ -84,10 +94,7 @@ pub async fn run(address: IpAddr, message: ForeignMessage) -> Result<(), RelayEr
 }
 
 async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayError> {
-	//TODO: use our own errors? send box dyn error?
 	eprintln!("{}:{}", addr, 25);
-	//todo: this one hangs interminably. why? i do not know
-	//todo: timeouts.
 	//todo: send failed connection message if port 25 is blocked, or something
 	let mut stream = timeout(
 		Duration::from_millis(2500),
