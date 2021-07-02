@@ -1,17 +1,11 @@
 use sail::config::Config;
 use sail::smtp::{
 	args::{Domain, ForwardPath},
-	ForeignMessage, ForeignPath, Message, Server,
+	ForeignMessage, ForeignPath, Message,
 };
-use std::{
-	collections::HashMap,
-	sync::mpsc::{channel, Receiver, Sender},
-};
-use tokio::{
-	io::{self, AsyncReadExt, AsyncWriteExt},
-	net::TcpListener,
-	net::TcpStream,
-};
+use std::collections::HashMap;
+use tokio::net::TcpListener;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 struct Sail {
 	config: Config,
@@ -20,9 +14,12 @@ struct Sail {
 }
 
 impl Sail {
-	async fn receive_messages(self, receiver: Receiver<Message>) {
+	async fn receive_messages(self, mut receiver: UnboundedReceiver<Message>) {
 		loop {
-			let message = receiver.recv().expect("No more senders, what happened?"); //TODO: Not this! Handle the error
+			let message = receiver
+				.recv()
+				.await
+				.expect("No more senders, what happened?"); //TODO: Not this! Handle the error
 
 			self.handle_message(message).await;
 
@@ -99,51 +96,6 @@ impl Sail {
 	async fn relay(domain: Domain, message: ForeignMessage) {}
 }
 
-//runs as long as the user remains connected
-// handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
-async fn serve(
-	mut stream: TcpStream,
-	message_sender: Sender<Message>,
-	config: Config,
-) -> io::Result<()> {
-	let (mut transaction, inital_response) = Server::initiate(message_sender, config);
-	stream
-		.write_all(inital_response.as_string().as_bytes())
-		.await?;
-
-	let mut buf = vec![0; 1024];
-
-	while !transaction.should_exit() {
-		let read = stream.read(&mut buf).await?;
-
-		// A zero sized read, this connection has died or been terminated by the client
-		if read == 0 {
-			println!("Connection unexpectedly closed by client");
-
-			return Ok(());
-		}
-
-		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref());
-
-		if let Some(response) = response {
-			stream.write_all(response.as_string().as_bytes()).await?;
-		}
-	}
-
-	Ok(())
-}
-
-//waits for new connections, dispatches new task to handle each new inbound connection
-async fn listen(listener: TcpListener, message_sender: Sender<Message>, config: Config) {
-	loop {
-		let (stream, clientaddr) = listener.accept().await.unwrap();
-
-		println!("connection from {}", clientaddr);
-
-		tokio::spawn(serve(stream, message_sender.clone(), config.clone()));
-	}
-}
-
 #[tokio::main]
 async fn main() {
 	let port: u16 = std::env::args()
@@ -167,7 +119,7 @@ async fn main() {
 		},
 	};
 
-	let (sender, receiver) = channel();
+	let (sender, receiver) = unbounded_channel();
 	let sail = Sail {
 		config: config.clone(),
 		local_messages: vec![],
@@ -175,7 +127,7 @@ async fn main() {
 	};
 
 	let receive_task = tokio::spawn(sail.receive_messages(receiver));
-	let listen_task = tokio::spawn(listen(listener, sender, config));
+	let listen_task = tokio::spawn(sail::net::listen(listener, sender, config));
 
 	// Maybe we join or something? At some point we have to handle graceful shutdowns
 	// so we'd need to handle that somehow. Some way to tell both things to shutdown.

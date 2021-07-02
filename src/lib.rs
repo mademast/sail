@@ -1,3 +1,3 @@
 pub mod config;
-pub mod dns;
 pub mod smtp;
+pub mod net;

@@ -1,6 +1,6 @@
 use super::args::{ForwardPath, ReversePath};
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct Message {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForwardPath>,
