@@ -1,4 +1,5 @@
 use sail::config::Config;
+use sail::net::relay;
 use sail::smtp::{
 	args::{Domain, ForwardPath},
 	ForeignMessage, ForeignPath, Message,
@@ -74,16 +75,19 @@ impl Sail {
 			})
 			.collect();
 
-		self.deliver_local(Message {
+		tokio::spawn(Self::deliver_local(Message {
 			reverse_path: reverse.clone(),
 			forward_paths: locals,
 			data: data.clone(),
-		})
-		.await;
+		}));
+
+		for (domain, message) in domains_messages {
+			tokio::spawn(relay(domain, message));
+		}
 	}
 
 	//todo: something other than this? we'd need a database of users and whatnot, though
-	async fn deliver_local(&self, message: Message) {
+	async fn deliver_local(message: Message) {
 		let (reverse, forwards, data) = message.into_parts();
 
 		print!("REVERSE: {}\nLOCAL TO:", reverse);
@@ -92,8 +96,6 @@ impl Sail {
 		}
 		println!("\n{}", data.join("\r\n"))
 	}
-
-	async fn relay(domain: Domain, message: ForeignMessage) {}
 }
 
 #[tokio::main]
