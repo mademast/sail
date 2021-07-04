@@ -1,5 +1,4 @@
 use sail::config::Config;
-use sail::net::relay;
 use sail::smtp::{
 	args::{Domain, ForwardPath},
 	ForeignMessage, ForeignPath, Message,
@@ -83,7 +82,7 @@ impl Sail {
 		});
 
 		for (domain, message) in domains_messages {
-			tokio::spawn(relay(domain, message, self.sender.clone()));
+			tokio::spawn(sail::net::relay(domain, message, self.sender.clone()));
 		}
 	}
 
