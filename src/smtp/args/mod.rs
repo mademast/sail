@@ -1,12 +1,12 @@
 mod domain;
+mod localpart;
 mod path;
 mod validator;
-mod localpart;
 
 pub use domain::*;
+pub use localpart::*;
 pub use path::*;
 pub use validator::*;
-pub use localpart::*;
 
 #[cfg(test)]
 mod test {
