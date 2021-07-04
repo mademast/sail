@@ -136,6 +136,6 @@ pub enum RelayError {
 	MismatchedDomains,
 	#[error("timed out before reaching the server")]
 	ConnectionTimeout(#[from] Elapsed),
-	#[error("")]
+	#[error("there was an error connecting to the host")]
 	ConnectionError(#[from] std::io::Error),
 }
