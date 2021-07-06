@@ -1,4 +1,4 @@
-use std::{net::IpAddr, time::Duration};
+use std::{net::IpAddr, sync::Arc, time::Duration};
 
 use thiserror::Error;
 use tokio::{
@@ -25,7 +25,7 @@ pub mod dns;
 async fn serve(
 	mut stream: TcpStream,
 	message_sender: Sender<Message>,
-	config: Config,
+	config: Arc<dyn Config>,
 ) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(message_sender, config);
 	stream
@@ -55,7 +55,11 @@ async fn serve(
 }
 
 //waits for new connections, dispatches new task to handle each new inbound connection
-pub async fn listen(listener: TcpListener, message_sender: Sender<Message>, config: Config) {
+pub async fn listen(
+	listener: TcpListener,
+	message_sender: Sender<Message>,
+	config: Arc<dyn Config>,
+) {
 	loop {
 		let (stream, clientaddr) = listener.accept().await.unwrap();
 

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use tokio::sync::mpsc::UnboundedSender as Sender;
 
 use crate::config::Config;
@@ -8,7 +10,7 @@ use super::{
 };
 
 pub struct Server {
-	config: Config,
+	config: Arc<dyn Config>,
 	primary_host: Domain,
 	message_sender: Sender<Message>,
 	state: State,
@@ -17,12 +19,8 @@ pub struct Server {
 }
 
 impl Server {
-	pub fn initiate(message_sender: Sender<Message>, config: Config) -> (Self, Response) {
-		let primary_host = config
-			.hostnames
-			.first()
-			.unwrap_or(&"sail".parse::<Domain>().unwrap())
-			.to_owned();
+	pub fn initiate(message_sender: Sender<Message>, config: Arc<dyn Config>) -> (Self, Response) {
+		let primary_host = config.as_ref().primary_host().to_owned();
 		(
 			Self {
 				config,
@@ -189,10 +187,7 @@ impl Server {
 			match forward_path {
 				ForwardPath::Postmaster => self.add_rcpt(forward_path),
 				ForwardPath::Regular(path) => {
-					if self.config.relays.contains(&path.domain)
-						|| self.config.hostnames.contains(&path.domain)
-							&& self.config.users.contains(&path.local_part)
-					{
+					if self.config.as_ref().path_is_valid(path) {
 						self.add_rcpt(forward_path)
 					} else {
 						Self::bad_command() //todo: correct responses

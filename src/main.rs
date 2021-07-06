@@ -1,14 +1,15 @@
-use sail::config::Config;
+use sail::config::{Config, SailConfig};
 use sail::smtp::{
 	args::{Domain, ForwardPath},
 	ForeignMessage, ForeignPath, Message,
 };
 use std::collections::HashMap;
+use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 struct Sail {
-	config: Config,
+	config: Arc<SailConfig>,
 	local_messages: Vec<Message>,
 	foreign_messages: Vec<(Domain, ForeignMessage)>,
 	sender: UnboundedSender<Message>,
@@ -109,28 +110,32 @@ async fn main() {
 
 	// Quick, bad config based on port for testing
 	let config = match port {
-		25 => Config {
+		25 => SailConfig {
 			hostnames: vec!["localhost".parse().unwrap()],
 			relays: vec!["nove.dev".parse().unwrap(), "genbyte.dev".parse().unwrap()],
 			users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
 		},
-		_ => Config {
-			hostnames: vec![],
-			users: vec![],
-			relays: vec![],
+		_ => SailConfig {
+			hostnames: vec!["localhost.localdomain".parse().unwrap()],
+			users: vec!["alice".parse().unwrap(), "bob".parse().unwrap()],
+			relays: vec!["localhost".parse().unwrap()],
 		},
 	};
 
 	let (sender, receiver) = unbounded_channel();
 	let sail = Sail {
-		config: config.clone(),
+		config: Arc::new(config),
 		local_messages: vec![],
 		foreign_messages: vec![],
 		sender: sender.clone(),
 	};
 
+	// make the arc before we move sail into receive_messages. Ideally we'd do
+	// something else so we can update the config later, but we are currently not
+	// architected for that
+	let dynconf = sail.config.clone();
 	let receive_task = tokio::spawn(sail.receive_messages(receiver));
-	let listen_task = tokio::spawn(sail::net::listen(listener, sender, config));
+	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf));
 
 	// Maybe we join or something? At some point we have to handle graceful shutdowns
 	// so we'd need to handle that somehow. Some way to tell both things to shutdown.
