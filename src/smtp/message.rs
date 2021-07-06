@@ -35,4 +35,25 @@ impl Message {
 	pub fn push_line<S: Into<String>>(&mut self, line: S) {
 		self.data.push(line.into());
 	}
+
+	/// Take in a String and remove leading periods from lines. This function
+	/// does not expect to receive the final ".\r\n" that ends the DATA command,
+	/// but will strip it if it's found.
+	pub fn raw_data(&mut self, raw_data: &str) {
+		// Remove the final \r\n so we don't get an empty string ending our vcetor
+		let mut lines: Vec<&str> = raw_data.trim_end_matches("\r\n").split("\r\n").collect();
+
+		if lines.ends_with(&["."]) {
+			lines.pop();
+		}
+
+		for line in lines {
+			if line.starts_with('.') {
+				//transparency to allow clients to send \r\n.\r\n without breaking SMTP
+				self.data.push(line[1..].to_string())
+			} else {
+				self.data.push(line.to_string())
+			}
+		}
+	}
 }

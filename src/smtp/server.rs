@@ -59,21 +59,15 @@ impl Server {
 
 	fn loading_data(&mut self) -> Option<Response> {
 		if self.command.ends_with("\r\n.\r\n") {
-			let mut lines: Vec<&str> = self
-				.command
-				.trim_end_matches("\r\n")
-				.split("\r\n")
-				.collect();
-
-			// Remove the done-with-data period
-			lines.pop();
-
-			for line in lines {
-				if line.starts_with('.') {
-					//transparency to allow clients to send \r\n.\r\n without breaking SMTP
-					self.message.data.push(line[1..].to_string())
-				} else {
-					self.message.data.push(line.to_string())
+			match self.command.strip_suffix(".\r\n") {
+				Some(no_trailing_period) => self.message.raw_data(no_trailing_period),
+				None => {
+					// Print an error because this shouldn't be able to happen.
+					// We make the message anyway as to not lose it.
+					eprintln!(
+						"Failed to strip final period line from message. How did this happen?"
+					);
+					self.message.raw_data(&self.command)
 				}
 			}
 
