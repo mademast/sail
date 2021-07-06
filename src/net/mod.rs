@@ -74,7 +74,7 @@ pub async fn relay(domain: Domain, message: ForeignMessage, sender: Sender<Messa
 		Ok(()) => return,
 		Err(err) => {
 			if let ReversePath::Regular(path) = message.reverse_path {
-				sender.send(Message::undeliverable(vec![err.to_string()], path));
+				sender.send(Message::undeliverable(err.to_string(), path));
 			}
 		}
 	}

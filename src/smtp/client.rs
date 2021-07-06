@@ -23,14 +23,14 @@ impl From<ForeignPath> for ForwardPath {
 pub struct ForeignMessage {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForeignPath>,
-	pub data: Vec<String>,
+	pub data: String,
 }
 
 impl ForeignMessage {
 	pub fn from_parts(
 		reverse_path: ReversePath,
 		forward_paths: Vec<ForeignPath>,
-		data: Vec<String>,
+		data: String,
 	) -> Self {
 		Self {
 			reverse_path,
@@ -45,7 +45,7 @@ impl Default for ForeignMessage {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![],
-			data: vec![],
+			data: String::new(),
 		}
 	}
 }
@@ -96,7 +96,7 @@ impl Client {
 		if !self.rejected_forward_paths.is_empty() {
 			if let Some(mut msg) = Into::<Message>::into(self.message).into_undeliverable() {
 				for path in self.rejected_forward_paths {
-					msg.push_line(format!("The host rejected {}", path.0));
+					msg.push(format!("The host rejected {}", path.0));
 				}
 
 				Some(msg)
@@ -221,14 +221,14 @@ impl Default for State {
 
 pub enum Output {
 	Command(super::Command),
-	Data(Vec<String>),
+	Data(String),
 }
 
 impl Display for Output {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Self::Command(command) => write!(f, "{}\r\n", command),
-			Self::Data(data) => write!(f, "{}\r\n.\r\n", data.join("\r\n")),
+			Self::Data(data) => write!(f, "{}\r\n.\r\n", data),
 		}
 	}
 }

@@ -97,7 +97,7 @@ impl Sail {
 		for path in forwards {
 			print!(" {}", path);
 		}
-		println!("\n{}", data.join("\r\n"))
+		print!("\n{}", data)
 	}
 }
 

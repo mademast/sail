@@ -4,11 +4,11 @@ use super::args::{ForwardPath, Path, ReversePath};
 pub struct Message {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForwardPath>,
-	pub data: Vec<String>,
+	pub data: String,
 }
 
 impl Message {
-	pub fn into_parts(self) -> (ReversePath, Vec<ForwardPath>, Vec<String>) {
+	pub fn into_parts(self) -> (ReversePath, Vec<ForwardPath>, String) {
 		let Message {
 			reverse_path,
 			forward_paths,
@@ -20,20 +20,20 @@ impl Message {
 	pub fn into_undeliverable(self) -> Option<Self> {
 		match self.reverse_path {
 			ReversePath::Null => None,
-			ReversePath::Regular(reverse) => Some(Self::undeliverable(vec![], reverse)),
+			ReversePath::Regular(reverse) => Some(Self::undeliverable("", reverse)),
 		}
 	}
 
-	pub fn undeliverable(reasons: Vec<String>, reverse_path: Path) -> Self {
+	pub fn undeliverable<S: Into<String>>(reason: S, reverse_path: Path) -> Self {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![ForwardPath::Regular(reverse_path)],
-			data: reasons,
+			data: reason.into(),
 		}
 	}
 
-	pub fn push_line<S: Into<String>>(&mut self, line: S) {
-		self.data.push(line.into());
+	pub fn push<S: AsRef<str>>(&mut self, line: S) {
+		self.data.push_str(line.as_ref());
 	}
 
 	/// Take in a String and remove leading periods from lines. This function
@@ -50,9 +50,9 @@ impl Message {
 		for line in lines {
 			if line.starts_with('.') {
 				//transparency to allow clients to send \r\n.\r\n without breaking SMTP
-				self.data.push(line[1..].to_string())
+				self.push(line[1..].to_string())
 			} else {
-				self.data.push(line.to_string())
+				self.push(line.to_string())
 			}
 		}
 	}
