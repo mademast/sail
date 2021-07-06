@@ -11,7 +11,6 @@ use super::{
 
 pub struct Server {
 	config: Arc<dyn Config>,
-	primary_host: Domain,
 	message_sender: Sender<Message>,
 	state: State,
 	command: String,
@@ -24,7 +23,6 @@ impl Server {
 		(
 			Self {
 				config,
-				primary_host: primary_host.clone(),
 				message_sender,
 				state: Default::default(),
 				command: Default::default(),
@@ -130,7 +128,11 @@ impl Server {
 
 				Response::with_message(
 					ResponseCode::Okay,
-					format!("{} (sail) greets {}", self.primary_host, client_domain),
+					format!(
+						"{} (sail) greets {}",
+						self.config.primary_host(),
+						client_domain
+					),
 				)
 			}
 			_ => Self::bad_command(),
@@ -148,7 +150,11 @@ impl Server {
 
 		Response::with_message(
 			ResponseCode::Okay,
-			format!("{} (sail) greets {}", self.primary_host, client_domain),
+			format!(
+				"{} (sail) greets {}",
+				self.config.primary_host(),
+				client_domain
+			),
 		)
 		.push("Help")
 	}
@@ -224,7 +230,7 @@ impl Server {
 
 		Response::with_message(
 			ResponseCode::ServiceClosing,
-			&format!("{} Goodbye", self.primary_host),
+			&format!("{} Goodbye", self.config.primary_host()),
 		)
 	}
 
