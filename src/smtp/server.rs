@@ -44,10 +44,7 @@ impl Server {
 		}
 
 		if self.state == State::LoadingData {
-			let resp = self.loading_data();
-			self.command.clear();
-
-			resp
+			self.loading_data()
 		} else {
 			let resp = self.run_command();
 			self.command.clear();
@@ -61,15 +58,28 @@ impl Server {
 	}
 
 	fn loading_data(&mut self) -> Option<Response> {
-		if self.command == ".\r\n" {
+		if self.command.ends_with("\r\n.\r\n") {
+			let mut lines: Vec<&str> = self
+				.command
+				.trim_end_matches("\r\n")
+				.split("\r\n")
+				.collect();
+
+			// Remove the done-with-data period
+			lines.pop();
+
+			for line in lines {
+				if line.starts_with('.') {
+					//transparency to allow clients to send \r\n.\r\n without breaking SMTP
+					self.message.data.push(line[1..].to_string())
+				} else {
+					self.message.data.push(line.to_string())
+				}
+			}
+
 			// Data is complete
 			Some(self.got_data())
-		//transparency to allow clients to send \r\n.\r\n without breaking SMTP
-		} else if self.command.starts_with('.') {
-			self.message.data.push(self.command[1..].to_string());
-			None
 		} else {
-			self.message.data.push(self.command.clone());
 			None
 		}
 	}
@@ -148,15 +158,16 @@ impl Server {
 		self.rset();
 		self.state = State::Greeted;
 
-		Response::with_message(
+		let mut resp = Response::with_message(
 			ResponseCode::Okay,
 			format!(
 				"{} (sail) greets {}",
 				self.config.primary_host(),
 				client_domain
 			),
-		)
-		.push("Help")
+		);
+		resp.push("Help");
+		resp
 	}
 
 	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot

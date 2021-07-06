@@ -1,5 +1,9 @@
+use std::num::ParseIntError;
+
+use thiserror::Error;
+
 pub struct Response {
-	code: ResponseCode,
+	pub code: ResponseCode,
 	messages: Vec<String>,
 }
 
@@ -18,10 +22,16 @@ impl Response {
 		}
 	}
 
-	pub fn push(mut self, message: &str) -> Self {
+	pub fn push(&mut self, message: &str) {
 		self.messages.push(message.to_owned());
+	}
 
-		self
+	pub fn insert(&mut self, index: usize, message: &str) {
+		self.messages.insert(index, message.to_owned());
+	}
+
+	pub fn code(&self) -> ResponseCode {
+		self.code
 	}
 
 	pub fn as_string(&self) -> String {
@@ -39,6 +49,70 @@ impl Response {
 		ret.push_str("\r\n");
 		ret
 	}
+}
+
+//todo: genny
+// this is bad and makes me sad.
+impl std::str::FromStr for Response {
+	type Err = ParseResponseError;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let lines: Vec<&str> = s.trim_end().split("\r\n").collect();
+		let mut line_iter = lines.iter().rev();
+
+		let mut response = match line_iter.next() {
+			Some(line) => {
+				if line.len() >= 3 {
+					let split = line.split_once(' ').unwrap_or((line, ""));
+					let code: ResponseCode = split.0.parse()?;
+
+					Response::with_message(code, split.1.trim())
+				} else {
+					return Err(ParseResponseError::MalformedResponse);
+				}
+			}
+			None => return Err(ParseResponseError::EmptyString),
+		};
+
+		loop {
+			match line_iter.next() {
+				Some(line) => {
+					if line.len() >= 4 {
+						let split = line
+							.split_once('-')
+							.ok_or(ParseResponseError::MalformedResponse)?;
+						let code = split.0.parse()?;
+
+						// Unknown codes can parse into the same ResponesCode, we
+						// should store the code as a string and check against that
+						if response.code() != code {
+							return Err(ParseResponseError::MixedResponseCode);
+						} else {
+							response.insert(0, split.1.trim());
+						}
+					} else {
+						return Err(ParseResponseError::MalformedResponse);
+					}
+				}
+				None => return Ok(response),
+			}
+		}
+	}
+}
+
+#[derive(Error, Debug)]
+
+pub enum ParseResponseError {
+	#[error("multiline responses may not mix reply codes")]
+	MixedResponseCode,
+	#[error("the response was malformed")]
+	MalformedResponse,
+	#[error("the response code did not make sense")]
+	MalformedResponseCode,
+	#[error("the response code was invalid")]
+	InvalidResponseCode(#[from] ParseIntError),
+	#[error("the reply was empty")]
+	EmptyString,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -178,8 +252,23 @@ impl ResponseCode {
 	}
 }
 
+impl std::str::FromStr for ResponseCode {
+	type Err = ParseResponseError;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		if s.len() == 3 {
+			Ok(ResponseCode::from_code(s.parse()?)
+				.ok_or(ParseResponseError::MalformedResponseCode)?)
+		} else {
+			Err(ParseResponseError::MalformedResponseCode)
+		}
+	}
+}
+
 #[cfg(test)]
 mod test {
+	use std::str::FromStr;
+
 	use super::*;
 
 	#[test]
@@ -207,7 +296,8 @@ mod test {
 
 	#[test]
 	fn response_as_string_multiline() {
-		let resp = Response::with_message(ResponseCode::Okay, "line1").push("line2");
+		let mut resp = Response::with_message(ResponseCode::Okay, "line1");
+		resp.push("line2");
 
 		assert_eq!(resp.as_string(), String::from("250-line1\r\n250 line2\r\n"));
 	}
@@ -224,5 +314,23 @@ mod test {
 		let resp = Response::new(ResponseCode::Okay);
 
 		assert_eq!(resp.as_string(), String::from("250 \r\n"));
+	}
+
+	#[test]
+	fn response_parse_singleline() {
+		let string = "250 Okay";
+		let response: Response = string.parse().unwrap();
+
+		assert_eq!(response.code, ResponseCode::Okay);
+		assert_eq!(response.messages, vec!["Okay"])
+	}
+
+	#[test]
+	fn response_parse_multiline() {
+		let string = "250-Okay\r\n250 Okay Final";
+		let response: Response = string.parse().unwrap();
+
+		assert_eq!(response.code, ResponseCode::Okay);
+		assert_eq!(response.messages, vec!["Okay", "Okay Final"])
 	}
 }

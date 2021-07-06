@@ -76,11 +76,13 @@ impl Sail {
 			})
 			.collect();
 
-		Self::deliver_local(Message {
-			reverse_path: reverse,
-			forward_paths: locals,
-			data,
-		});
+		if !locals.is_empty() {
+			Self::deliver_local(Message {
+				reverse_path: reverse,
+				forward_paths: locals,
+				data,
+			});
+		}
 
 		for (domain, message) in domains_messages {
 			tokio::spawn(sail::net::relay(domain, message, self.sender.clone()));

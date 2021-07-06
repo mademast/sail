@@ -82,7 +82,7 @@ pub async fn relay(domain: Domain, message: ForeignMessage, sender: Sender<Messa
 
 async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> {
 	let ip = match &domain {
-		Domain::FQDN(domain) => DnsLookup::new(&domain.to_string())
+		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", &domain.to_string()))
 			.await
 			.unwrap()
 			.next_address()
@@ -123,9 +123,12 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayEr
 			println!("Connection unexpectedly closed by server");
 			return Ok(());
 		}
+
+		println!("{}", String::from_utf8_lossy(&buf[..read]));
 		let command = client.push(String::from_utf8_lossy(&buf[..read]).as_ref());
 
 		if let Some(command) = command {
+			println!("{}", command.to_string());
 			stream.write_all(command.to_string().as_bytes()).await?;
 		}
 	}

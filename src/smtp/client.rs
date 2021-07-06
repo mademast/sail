@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::smtp::Response;
+
 use super::{
 	args::{ForwardPath, Path, ReversePath},
 	Command::*,
@@ -112,14 +114,29 @@ impl Client {
 	}
 
 	fn process_reply(&mut self) -> Option<Output> {
-		if self.reply.len() < 3 || !self.reply.is_ascii() {
+		if self.reply.len() < 3
+			|| !self.reply.is_ascii()
+			|| (self.reply.len() > 4
+				&& self
+					.reply
+					.trim_end()
+					.split("\r\n")
+					.last()
+					.unwrap()
+					.chars()
+					.skip(3)
+					.next()
+					.unwrap() == '-')
+		{
 			return None;
 		}
-		let code = self.reply.split_at(3).0;
+
+		let response: Response = self.reply.parse().unwrap();
+		self.reply.clear();
 
 		//todo: parse multiline replies e.g. ehlo
-		//todo: handle the unknown response codes
-		let code = ResponseCode::from_code(code.parse().ok()?)?;
+		//todo: handle the unknown response codes1`
+		let code: ResponseCode = response.code;
 
 		Some(match self.state {
 			State::Initiated => match code {
@@ -210,7 +227,7 @@ pub enum Output {
 impl Display for Output {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::Command(command) => write!(f, "{}", command),
+			Self::Command(command) => write!(f, "{}\r\n", command),
 			Self::Data(data) => write!(f, "{}\r\n.\r\n", data.join("\r\n")),
 		}
 	}

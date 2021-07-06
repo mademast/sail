@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use thiserror::Error;
 use trust_dns_resolver::{
 	config::{ResolverConfig, ResolverOpts},
-	error::ResolveError,
+	error::{ResolveError, ResolveErrorKind},
 	TokioAsyncResolver,
 };
 
@@ -21,19 +21,28 @@ impl DnsLookup {
 		let resolver =
 			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())?;
 
-		let mut mx_rec: Vec<(u16, String)> = resolver
-			.mx_lookup(fqdn)
-			.await?
-			.iter()
-			.map(|mx| (mx.preference(), mx.exchange().to_string()))
-			.collect();
+		match resolver.mx_lookup(fqdn).await {
+			Ok(mxlookup) => {
+				let mut mx_rec: Vec<(u16, String)> = mxlookup
+					.iter()
+					.map(|mx| (mx.preference(), mx.exchange().to_string()))
+					.collect();
 
-		mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2).reverse());
+				mx_rec.sort_by(|(pref1, _), (pref2, _)| pref1.cmp(pref2).reverse());
 
-		Ok(Self {
-			mx_records: mx_rec.into_iter().map(|(_, domain)| domain).collect(),
-			ip_addresses: vec![],
-		})
+				Ok(Self {
+					mx_records: mx_rec.into_iter().map(|(_, domain)| domain).collect(),
+					ip_addresses: vec![],
+				})
+			}
+			//todo: not this. we should only check for A records when no MX
+			//exist at all. If an MX exists but there was an error, this is
+			//a violation of spec
+			Err(_err) => Ok(Self {
+				mx_records: vec![],
+				ip_addresses: Self::get_addresses(fqdn).await?,
+			}),
+		}
 	}
 
 	pub async fn next_address(&mut self) -> Result<IpAddr, DnsLookupError> {
