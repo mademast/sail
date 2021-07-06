@@ -17,11 +17,22 @@ impl Message {
 		(reverse_path, forward_paths, data)
 	}
 
+	pub fn into_undeliverable(self) -> Option<Self> {
+		match self.reverse_path {
+			ReversePath::Null => None,
+			ReversePath::Regular(reverse) => Some(Self::undeliverable(vec![], reverse)),
+		}
+	}
+
 	pub fn undeliverable(reasons: Vec<String>, reverse_path: Path) -> Self {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![ForwardPath::Regular(reverse_path)],
 			data: reasons,
 		}
+	}
+
+	pub fn push_line<S: Into<String>>(&mut self, line: S) {
+		self.data.push(line.into());
 	}
 }

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use super::{
 	args::{ForwardPath, Path, ReversePath},
 	Command::*,
-	ResponseCode,
+	Message, ResponseCode,
 };
 
 /// A small wrapper around Path as a type-checked, compile-time feature to try
@@ -48,11 +48,28 @@ impl Default for ForeignMessage {
 	}
 }
 
+impl Into<Message> for ForeignMessage {
+	fn into(self) -> Message {
+		Message {
+			reverse_path: self.reverse_path,
+			forward_paths: self
+				.forward_paths
+				.into_iter()
+				.map(|fpath| fpath.into())
+				.collect(),
+			data: self.data,
+		}
+	}
+}
+
 #[derive(Default, Clone)]
 pub struct Client {
 	state: State,
 	reply: String,
 	message: ForeignMessage,
+
+	last_sent_path: Option<ForeignPath>,
+	rejected_forward_paths: Vec<ForeignPath>,
 }
 
 impl Client {
@@ -71,6 +88,27 @@ impl Client {
 		}
 
 		self.process_reply()
+	}
+
+	pub fn undeliverable(self) -> Option<Message> {
+		if !self.rejected_forward_paths.is_empty() {
+			if let Some(mut msg) = Into::<Message>::into(self.message).into_undeliverable() {
+				for path in self.rejected_forward_paths {
+					msg.push_line(format!("The host rejected {}", path.0));
+				}
+
+				Some(msg)
+			} else {
+				None
+			}
+		} else {
+			None
+		}
+	}
+
+	fn invalid_forward(&mut self) {
+		self.rejected_forward_paths
+			.push(self.last_sent_path.take().unwrap())
 	}
 
 	fn process_reply(&mut self) -> Option<Output> {
@@ -106,30 +144,31 @@ impl Client {
 				_ => todo!(),
 			},
 			State::SendingForwardPaths => {
+				if code.is_negative() {
+					self.invalid_forward();
+				}
+
 				if let Some(path) = self.message.forward_paths.pop() {
-					match code {
-						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
-							Output::Command(Rcpt(path.into()))
-						}
-						_ => todo!(),
-					}
+					self.last_sent_path = Some(path.clone());
+					Output::Command(Rcpt(path.into()))
 				} else {
-					match code {
-						ResponseCode::Okay | ResponseCode::UserNotLocalWillForward => {
-							self.state = State::SentForwardPaths;
-							Output::Command(Data)
-						}
-						_ => todo!(),
-					}
+					self.state = State::SentForwardPaths;
+					Output::Command(Data)
 				}
 			}
-			State::SentForwardPaths => match code {
-				ResponseCode::StartMailInput => {
-					self.state = State::SentData;
-					Output::Data(self.message.data.clone())
+			State::SentForwardPaths => {
+				if code.is_negative() {
+					self.invalid_forward();
 				}
-				_ => todo!(),
-			},
+
+				match code {
+					ResponseCode::StartMailInput => {
+						self.state = State::SentData;
+						Output::Data(self.message.data.clone())
+					}
+					_ => todo!(),
+				}
+			}
 			State::SentData => match code {
 				ResponseCode::Okay => {
 					self.state = State::ShouldExit;

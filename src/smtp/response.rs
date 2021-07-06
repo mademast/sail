@@ -164,6 +164,18 @@ impl ResponseCode {
 			ResponseCode::UnknownNegativePermanent => 500,
 		}
 	}
+
+	pub fn is_negative(&self) -> bool {
+		let first = self.as_code() / 100;
+
+		first == 4 || first == 5
+	}
+
+	pub fn is_positive(&self) -> bool {
+		let first = self.as_code() / 100;
+
+		first == 2 || first == 3
+	}
 }
 
 #[cfg(test)]
