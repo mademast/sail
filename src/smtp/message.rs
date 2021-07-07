@@ -17,10 +17,10 @@ impl Message {
 		(reverse_path, forward_paths, data)
 	}
 
-	pub fn into_undeliverable(self) -> Option<Self> {
+	pub fn into_undeliverable<S: Into<String>>(self, reason: S) -> Option<Self> {
 		match self.reverse_path {
 			ReversePath::Null => None,
-			ReversePath::Regular(reverse) => Some(Self::undeliverable("", reverse)),
+			ReversePath::Regular(reverse) => Some(Self::undeliverable(reason.into(), reverse)),
 		}
 	}
 

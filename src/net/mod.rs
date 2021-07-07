@@ -69,18 +69,14 @@ pub async fn listen(
 	}
 }
 
-pub async fn relay(domain: Domain, message: ForeignMessage, sender: Sender<Message>) {
+pub async fn relay(domain: Domain, message: ForeignMessage) -> Option<Message> {
 	match run(domain, message.clone()).await {
-		Ok(()) => return,
-		Err(err) => {
-			if let ReversePath::Regular(path) = message.reverse_path {
-				sender.send(Message::undeliverable(err.to_string(), path));
-			}
-		}
+		Ok(maybe_message) => maybe_message,
+		Err(err) => Into::<Message>::into(message).into_undeliverable(err.to_string()),
 	}
 }
 
-async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> {
+async fn run(domain: Domain, message: ForeignMessage) -> Result<Option<Message>, RelayError> {
 	let ip = match &domain {
 		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", &domain.to_string()))
 			.await
@@ -96,11 +92,7 @@ async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> 
 		}
 	}
 
-	//todo: deliver this
-	let maybe_undeliverable = send_to_ip(ip, message).await?;
-
-	todo!() //TODO: send 250 if the message sent properly, otherwise a 5xx error or whatever the remote server sent
-	    //alternatively, send 250 immediately, then construct an undeliverable message
+	send_to_ip(ip, message).await
 }
 
 async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<Option<Message>, RelayError> {

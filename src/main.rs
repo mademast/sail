@@ -7,16 +7,19 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::task::JoinHandle;
 
 struct Sail {
 	config: Arc<SailConfig>,
+	sender: UnboundedSender<Message>,
+
+	delivery_tasks: Vec<JoinHandle<Option<Message>>>,
 	local_messages: Vec<Message>,
 	foreign_messages: Vec<(Domain, ForeignMessage)>,
-	sender: UnboundedSender<Message>,
 }
 
 impl Sail {
-	async fn receive_messages(self, mut receiver: UnboundedReceiver<Message>) {
+	async fn receive_messages(mut self, mut receiver: UnboundedReceiver<Message>) {
 		loop {
 			let message = receiver
 				.recv()
@@ -27,8 +30,7 @@ impl Sail {
 
 			//Here we'd check if we relay or save and act appropriately. but FIRST we should write
 			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
-			//try once, as that shouldn't take long, and then if we fail we write? For now, we print.
-			//println!("{}", message.data.join("\r\n"));
+			//try once, as that shouldn't take long, and then if we fail we write?
 
 			// put the runner in Client, or another struct that sits above client.
 			//it should try once, then write to disk and sleep for a while.
@@ -38,7 +40,7 @@ impl Sail {
 	}
 
 	// filters local messages from foreign (to be relayed) messages
-	fn handle_message(&self, message: Message) {
+	fn handle_message(&mut self, message: Message) {
 		let (reverse, forwards, data) = message.into_parts();
 
 		let mut foreign_map: HashMap<Domain, Vec<ForeignPath>> = HashMap::new();
@@ -77,27 +79,31 @@ impl Sail {
 			.collect();
 
 		if !locals.is_empty() {
-			Self::deliver_local(Message {
-				reverse_path: reverse,
-				forward_paths: locals,
-				data,
-			});
+			self.delivery_tasks
+				.push(tokio::spawn(Self::deliver_local(Message {
+					reverse_path: reverse,
+					forward_paths: locals,
+					data,
+				})));
 		}
 
 		for (domain, message) in domains_messages {
-			tokio::spawn(sail::net::relay(domain, message, self.sender.clone()));
+			self.delivery_tasks
+				.push(tokio::spawn(sail::net::relay(domain, message)));
 		}
 	}
 
-	//todo: something other than this? we'd need a database of users and whatnot, though
-	fn deliver_local(message: Message) {
+	//todo: save to fs. Return an undeliverable message if we can't
+	async fn deliver_local(message: Message) -> Option<Message> {
 		let (reverse, forwards, data) = message.into_parts();
 
 		print!("REVERSE: {}\nLOCAL TO:", reverse);
 		for path in forwards {
 			print!(" {}", path);
 		}
-		print!("\n{}", data)
+		print!("\n{}", data);
+
+		None
 	}
 }
 
@@ -127,9 +133,11 @@ async fn main() {
 	let (sender, receiver) = unbounded_channel();
 	let sail = Sail {
 		config: Arc::new(config),
+		sender: sender.clone(),
+
+		delivery_tasks: vec![],
 		local_messages: vec![],
 		foreign_messages: vec![],
-		sender: sender.clone(),
 	};
 
 	// make the arc before we move sail into receive_messages. Ideally we'd do

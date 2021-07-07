@@ -94,7 +94,7 @@ impl Client {
 
 	pub fn undeliverable(self) -> Option<Message> {
 		if !self.rejected_forward_paths.is_empty() {
-			if let Some(mut msg) = Into::<Message>::into(self.message).into_undeliverable() {
+			if let Some(mut msg) = Into::<Message>::into(self.message).into_undeliverable("") {
 				for path in self.rejected_forward_paths {
 					//todo: better messages. can we take the text part of the
 					//resposne and put it here?
