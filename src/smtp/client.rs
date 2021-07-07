@@ -96,6 +96,8 @@ impl Client {
 		if !self.rejected_forward_paths.is_empty() {
 			if let Some(mut msg) = Into::<Message>::into(self.message).into_undeliverable() {
 				for path in self.rejected_forward_paths {
+					//todo: better messages. can we take the text part of the
+					//resposne and put it here?
 					msg.push(format!("The host rejected {}", path.0));
 				}
 
@@ -114,6 +116,7 @@ impl Client {
 	}
 
 	fn process_reply(&mut self) -> Option<Output> {
+		//todo: oh no.
 		if self.reply.len() < 3
 			|| !self.reply.is_ascii()
 			|| (self.reply.len() > 4
@@ -141,7 +144,7 @@ impl Client {
 		// we MUST only exit when we receive a reply from the server
 		if self.state == State::SentQuit {
 			if code != ResponseCode::ServiceClosing {
-				// RFC says server MUST sent the 221 service closing
+				// RFC says server MUST send the 221 service closing
 				// we're still allowed to exit if it's not 221
 				eprintln!("server sent something other than a 221 to our quit.");
 			}
