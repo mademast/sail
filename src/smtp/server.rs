@@ -59,17 +59,7 @@ impl Server {
 
 	fn loading_data(&mut self) -> Option<Response> {
 		if self.command.ends_with("\r\n.\r\n") {
-			match self.command.strip_suffix(".\r\n") {
-				Some(no_trailing_period) => self.message.raw_data(no_trailing_period),
-				None => {
-					// Print an error because this shouldn't be able to happen.
-					// We make the message anyway as to not lose it.
-					eprintln!(
-						"Failed to strip final period line from message. How did this happen?"
-					);
-					self.message.raw_data(&self.command)
-				}
-			}
+			self.message.raw_data(&self.command);
 
 			self.command.clear();
 
@@ -83,11 +73,9 @@ impl Server {
 	fn got_data(&mut self) -> Response {
 		//TODO: Fail here if the mail data fails verification as per RFC 5322
 
-		//TODO: Instead of this bad expect, send an error to the client. This is our fault,
-		//it'll be one of the 500s.
-		self.message_sender
-			.send(self.message.clone())
-			.expect("Failed to send message");
+		if self.message_sender.send(self.message.clone()).is_err() {
+			return Response::with_message("451".parse().unwrap(), "Internal threading error");
+		}
 
 		self.rset();
 		self.state = State::Greeted;
