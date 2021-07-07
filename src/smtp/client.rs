@@ -120,15 +120,7 @@ impl Client {
 		if self.reply.len() < 3
 			|| !self.reply.is_ascii()
 			|| (self.reply.len() > 4
-				&& self
-					.reply
-					.trim_end()
-					.split("\r\n")
-					.last()
-					.unwrap()
-					.chars()
-					.nth(3)
-					.unwrap() == '-')
+				&& self.reply.trim_end().split("\r\n").last()?.chars().nth(3)? == '-')
 		{
 			return None;
 		}
@@ -137,7 +129,7 @@ impl Client {
 		self.reply.clear();
 
 		//todo: parse multiline replies e.g. ehlo
-		//todo: handle the unknown response codes1`
+		//todo: handle the unknown response codes
 		let code: ResponseCode = response.code;
 
 		// we MUST only exit when we receive a reply from the server

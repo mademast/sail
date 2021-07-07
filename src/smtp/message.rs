@@ -40,7 +40,7 @@ impl Message {
 	/// does not expect to receive the final ".\r\n" that ends the DATA command,
 	/// but will strip it if it's found.
 	pub fn raw_data(&mut self, raw_data: &str) {
-		// Remove the final \r\n so we don't get an empty string ending our vcetor
+		// Remove the final \r\n so we don't get an empty string ending our vector
 		let mut lines: Vec<&str> = raw_data.trim_end_matches("\r\n").split("\r\n").collect();
 
 		if lines.ends_with(&["."]) {
