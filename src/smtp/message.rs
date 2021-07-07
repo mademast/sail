@@ -50,7 +50,7 @@ impl Message {
 		for line in lines {
 			if line.starts_with('.') {
 				//transparency to allow clients to send \r\n.\r\n without breaking SMTP
-				self.push(line[1..].to_string())
+				self.push(line.strip_prefix('.').unwrap())
 			} else {
 				self.push(line.to_string())
 			}

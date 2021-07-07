@@ -50,7 +50,7 @@ impl Config for SailConfig {
 	}
 
 	fn path_is_valid(&self, path: &Path) -> bool {
-		return self.path_is_foreign(path)
-			|| (self.path_is_local(path) && self.user_is_valid(&path.local_part));
+		self.path_is_foreign(path)
+			|| (self.path_is_local(path) && self.user_is_valid(&path.local_part))
 	}
 }

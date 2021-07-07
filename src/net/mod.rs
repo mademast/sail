@@ -10,10 +10,7 @@ use tokio::{
 
 use crate::{
 	config::Config,
-	smtp::{
-		args::{Domain, ReversePath},
-		Client, ForeignMessage, Message, Server,
-	},
+	smtp::{args::Domain, Client, ForeignMessage, Message, Server},
 };
 
 use self::dns::DnsLookup;

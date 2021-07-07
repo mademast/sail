@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use thiserror::Error;
 use trust_dns_resolver::{
 	config::{ResolverConfig, ResolverOpts},
-	error::{ResolveError, ResolveErrorKind},
+	error::ResolveError,
 	TokioAsyncResolver,
 };
 

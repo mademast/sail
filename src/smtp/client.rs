@@ -50,16 +50,16 @@ impl Default for ForeignMessage {
 	}
 }
 
-impl Into<Message> for ForeignMessage {
-	fn into(self) -> Message {
-		Message {
-			reverse_path: self.reverse_path,
-			forward_paths: self
+impl From<ForeignMessage> for Message {
+	fn from(other: ForeignMessage) -> Self {
+		Self {
+			reverse_path: other.reverse_path,
+			forward_paths: other
 				.forward_paths
 				.into_iter()
 				.map(|fpath| fpath.into())
 				.collect(),
-			data: self.data,
+			data: other.data,
 		}
 	}
 }
@@ -127,8 +127,7 @@ impl Client {
 					.last()
 					.unwrap()
 					.chars()
-					.skip(3)
-					.next()
+					.nth(3)
 					.unwrap() == '-')
 		{
 			return None;

@@ -267,7 +267,6 @@ impl std::str::FromStr for ResponseCode {
 
 #[cfg(test)]
 mod test {
-	use std::str::FromStr;
 
 	use super::*;
 

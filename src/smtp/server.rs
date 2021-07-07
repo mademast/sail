@@ -19,7 +19,7 @@ pub struct Server {
 
 impl Server {
 	pub fn initiate(message_sender: Sender<Message>, config: Arc<dyn Config>) -> (Self, Response) {
-		let primary_host = config.as_ref().primary_host().to_owned();
+		let primary_host = config.as_ref().primary_host();
 		(
 			Self {
 				config,
@@ -119,9 +119,10 @@ impl Server {
 				super::command::ParseCommandError::InvalidPath(_) => {
 					Response::with_message(ResponseCode::InvalidParameters, "Bad path")
 				}
-				super::command::ParseCommandError::InvalidDomain(err) => {
-					Response::with_message(ResponseCode::InvalidParameters, "Bad domain")
-				}
+				super::command::ParseCommandError::InvalidDomain(err) => Response::with_message(
+					ResponseCode::InvalidParameters,
+					&format!("Bad domain: {}", err),
+				),
 			},
 		}
 	}
@@ -164,15 +165,6 @@ impl Server {
 		);
 		resp.push("Help");
 		resp
-	}
-
-	//todo: parse these, don't validate them. separate the parameters, break them into reverse_path structs and whatnot
-	fn validate_reverse_path(reverse_path: &str) -> bool {
-		todo!() //this can also have mail parameters, apparently
-	}
-
-	fn validate_forward_path(forward_path: &str) -> bool {
-		todo!()
 	}
 
 	fn data(&mut self) -> Response {
