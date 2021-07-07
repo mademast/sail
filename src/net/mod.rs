@@ -92,6 +92,9 @@ async fn run(domain: Domain, message: ForeignMessage) -> Result<Option<Message>,
 	send_to_ip(ip, message).await
 }
 
+//todo: the return value of this function is a little weird. Ok(undeliverable) is very unintuitive. 
+//Also, when do we return a real Ok() value? It should be when we've finished sending, but in that
+//case we send an undeliverable, yea?
 async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<Option<Message>, RelayError> {
 	eprintln!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
