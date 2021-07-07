@@ -3,7 +3,7 @@ use std::net::IpAddr;
 use thiserror::Error;
 use trust_dns_resolver::{
 	config::{ResolverConfig, ResolverOpts},
-	error::ResolveError,
+	error::{ResolveError, ResolveErrorKind},
 	TokioAsyncResolver,
 };
 
@@ -35,13 +35,18 @@ impl DnsLookup {
 					ip_addresses: vec![],
 				})
 			}
-			//todo: not this. we should only check for A records when no MX
-			//exist at all. If an MX exists but there was an error, this is
-			//a violation of spec
-			Err(_err) => Ok(Self {
-				mx_records: vec![],
-				ip_addresses: Self::get_addresses(fqdn).await?,
-			}),
+			
+			Err(err) => match err.kind() {
+				ResolveErrorKind::NoRecordsFound { .. } => Ok(Self {
+					mx_records: vec![],
+					ip_addresses: Self::get_addresses(fqdn).await?,
+				}),
+				ResolveErrorKind::Message(_) => todo!(),
+				ResolveErrorKind::Msg(_) => todo!(),
+				ResolveErrorKind::Io(_) => todo!(),
+				ResolveErrorKind::Proto(_) => todo!(),
+				ResolveErrorKind::Timeout => todo!(),
+			},
 		}
 	}
 
