@@ -1,4 +1,4 @@
-use std::num::ParseIntError;
+use std::{cmp::Ordering, num::ParseIntError};
 
 use thiserror::Error;
 
@@ -57,34 +57,33 @@ impl std::str::FromStr for Response {
 	type Err = ParseResponseError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let lines: Vec<&str> = s.trim_end().split("\r\n").collect();
-		let mut line_iter = lines.iter().rev();
+		let mut lines = s.trim_end().rsplit("\r\n");
 
-		let mut response = match line_iter.next() {
-			Some(line) => {
-				if line.len() >= 3 {
-					let split = line.split_once(' ').unwrap_or((line, ""));
+		let mut response = match lines.next() {
+			Some(line) => match line.len().cmp(&3) {
+				Ordering::Less => return Err(ParseResponseError::MalformedResponse),
+				Ordering::Equal => Response::with_message(line.parse()?, ""),
+				Ordering::Greater => {
+					let split = line
+						.split_once(' ')
+						.ok_or(ParseResponseError::MalformedResponse)?;
 					let code: ResponseCode = split.0.parse()?;
 
 					Response::with_message(code, split.1.trim())
-				} else {
-					return Err(ParseResponseError::MalformedResponse);
 				}
-			}
+			},
 			None => return Err(ParseResponseError::EmptyString),
 		};
 
 		loop {
-			match line_iter.next() {
+			match lines.next() {
 				Some(line) => {
-					if line.len() >= 4 {
+					if line.len() > 4 {
 						let split = line
 							.split_once('-')
 							.ok_or(ParseResponseError::MalformedResponse)?;
 						let code = split.0.parse()?;
 
-						// Unknown codes can parse into the same ResponesCode, we
-						// should store the code as a string and check against that
 						if response.code() != code {
 							return Err(ParseResponseError::MixedResponseCode);
 						} else {
@@ -101,7 +100,6 @@ impl std::str::FromStr for Response {
 }
 
 #[derive(Error, Debug)]
-
 pub enum ParseResponseError {
 	#[error("multiline responses may not mix reply codes")]
 	MixedResponseCode,
@@ -115,7 +113,7 @@ pub enum ParseResponseError {
 	EmptyString,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug)]
 pub enum ResponseCode {
 	UnrecognizedCommand,   // 500
 	InvalidParameters,     // 501
@@ -134,9 +132,9 @@ pub enum ResponseCode {
 	CannotVrfyUser,          // 252 (but will attempt delivery)
 
 	UnableToAcceptParameters,  // 455
-	MailRcptParamtersError,    // 555
+	MailRcptParametersError,   // 555
 	TemporaryMailFail,         // 450 (action not taken: mailbox unavailable)
-	PermenantMailFail,         // 550
+	PermanentMailFail,         // 550
 	ProcessingError,           // 451
 	UserNotLocal,              // 551 (please try <forward-path>)
 	InsufficientStorage,       // 452
@@ -146,14 +144,20 @@ pub enum ResponseCode {
 	StartMailInput,  // 354
 	TransactionFail, // 554
 
-	UnknownPositiveCompletion, // 2xx
-	UnknownPositiveWaiting,    // 3xx
-	UnknownNegativeTemporary,  // 4xx
-	UnknownNegativePermanent,  // 5xx
+	UnknownPositiveCompletion(u16), // 2xx
+	UnknownPositiveWaiting(u16),    // 3xx
+	UnknownNegativeTemporary(u16),  // 4xx
+	UnknownNegativePermanent(u16),  // 5xx
+}
+
+impl PartialEq for ResponseCode {
+	fn eq(&self, other: &Self) -> bool {
+		self.as_code() == other.as_code()
+	}
 }
 
 impl ResponseCode {
-	pub fn from_code(code: usize) -> Option<ResponseCode> {
+	pub fn from_code(code: u16) -> Option<ResponseCode> {
 		let response_code = match code {
 			500 => Some(ResponseCode::UnrecognizedCommand),
 			501 => Some(ResponseCode::InvalidParameters),
@@ -172,9 +176,9 @@ impl ResponseCode {
 			252 => Some(ResponseCode::CannotVrfyUser),
 
 			455 => Some(ResponseCode::UnableToAcceptParameters),
-			555 => Some(ResponseCode::MailRcptParamtersError),
+			555 => Some(ResponseCode::MailRcptParametersError),
 			450 => Some(ResponseCode::TemporaryMailFail),
-			550 => Some(ResponseCode::PermenantMailFail),
+			550 => Some(ResponseCode::PermanentMailFail),
 			451 => Some(ResponseCode::ProcessingError),
 			551 => Some(ResponseCode::UserNotLocal),
 			452 => Some(ResponseCode::InsufficientStorage),
@@ -188,10 +192,10 @@ impl ResponseCode {
 
 		if response_code.is_none() {
 			match code / 100 {
-				2 => Some(ResponseCode::UnknownPositiveCompletion),
-				3 => Some(ResponseCode::UnknownPositiveWaiting),
-				4 => Some(ResponseCode::UnknownNegativeTemporary),
-				5 => Some(ResponseCode::UnknownNegativePermanent),
+				2 => Some(ResponseCode::UnknownPositiveCompletion(code)),
+				3 => Some(ResponseCode::UnknownPositiveWaiting(code)),
+				4 => Some(ResponseCode::UnknownNegativeTemporary(code)),
+				5 => Some(ResponseCode::UnknownNegativePermanent(code)),
 				_ => None,
 			}
 		} else {
@@ -199,7 +203,7 @@ impl ResponseCode {
 		}
 	}
 
-	pub fn as_code(self) -> usize {
+	pub fn as_code(self) -> u16 {
 		match self {
 			ResponseCode::UnrecognizedCommand => 550,
 			ResponseCode::InvalidParameters => 501,
@@ -218,9 +222,9 @@ impl ResponseCode {
 			ResponseCode::CannotVrfyUser => 252,
 
 			ResponseCode::UnableToAcceptParameters => 455,
-			ResponseCode::MailRcptParamtersError => 555,
+			ResponseCode::MailRcptParametersError => 555,
 			ResponseCode::TemporaryMailFail => 450,
-			ResponseCode::PermenantMailFail => 550,
+			ResponseCode::PermanentMailFail => 550,
 			ResponseCode::ProcessingError => 451,
 			ResponseCode::UserNotLocal => 551,
 			ResponseCode::InsufficientStorage => 452,
@@ -232,10 +236,10 @@ impl ResponseCode {
 
 			// Should these enums carry the value they were created from with
 			// them so we can convert back to a number losslessly?
-			ResponseCode::UnknownPositiveCompletion => 200,
-			ResponseCode::UnknownPositiveWaiting => 300,
-			ResponseCode::UnknownNegativeTemporary => 400,
-			ResponseCode::UnknownNegativePermanent => 500,
+			ResponseCode::UnknownPositiveCompletion(code) => code,
+			ResponseCode::UnknownPositiveWaiting(code) => code,
+			ResponseCode::UnknownNegativeTemporary(code) => code,
+			ResponseCode::UnknownNegativePermanent(code) => code,
 		}
 	}
 
@@ -274,22 +278,22 @@ mod test {
 	fn response_code_unknowns() {
 		assert_eq!(
 			ResponseCode::from_code(299),
-			Some(ResponseCode::UnknownPositiveCompletion)
+			Some(ResponseCode::UnknownPositiveCompletion(299))
 		);
 
 		assert_eq!(
 			ResponseCode::from_code(399),
-			Some(ResponseCode::UnknownPositiveWaiting)
+			Some(ResponseCode::UnknownPositiveWaiting(399))
 		);
 
 		assert_eq!(
 			ResponseCode::from_code(499),
-			Some(ResponseCode::UnknownNegativeTemporary)
+			Some(ResponseCode::UnknownNegativeTemporary(499))
 		);
 
 		assert_eq!(
 			ResponseCode::from_code(599),
-			Some(ResponseCode::UnknownNegativePermanent)
+			Some(ResponseCode::UnknownNegativePermanent(599))
 		);
 	}
 
