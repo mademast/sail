@@ -54,6 +54,8 @@ impl Message {
 			} else {
 				self.push(line.to_string())
 			}
+
+			self.push("\r\n");
 		}
 	}
 }

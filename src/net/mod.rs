@@ -96,13 +96,14 @@ async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> 
 		}
 	}
 
-	send_to_ip(ip, message).await?;
+	//todo: deliver this
+	let maybe_undeliverable = send_to_ip(ip, message).await?;
 
 	todo!() //TODO: send 250 if the message sent properly, otherwise a 5xx error or whatever the remote server sent
 	    //alternatively, send 250 immediately, then construct an undeliverable message
 }
 
-async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayError> {
+async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<Option<Message>, RelayError> {
 	eprintln!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
 	let mut stream = timeout(
@@ -121,7 +122,8 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayEr
 		// A zero sized read, this connection has died or been terminated by the server
 		if read == 0 {
 			println!("Connection unexpectedly closed by server");
-			return Ok(());
+			//todo: This should be an error. We'ce come so far, we can't lose the message here
+			return Ok(None);
 		}
 
 		println!("{}", String::from_utf8_lossy(&buf[..read]));
@@ -132,7 +134,8 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayEr
 			stream.write_all(command.to_string().as_bytes()).await?;
 		}
 	}
-	Ok(())
+
+	Ok(client.undeliverable())
 }
 
 #[derive(Debug, Error)]

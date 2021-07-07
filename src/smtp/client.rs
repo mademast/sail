@@ -138,6 +138,18 @@ impl Client {
 		//todo: handle the unknown response codes1`
 		let code: ResponseCode = response.code;
 
+		// we MUST only exit when we receive a reply from the server
+		if self.state == State::SentQuit {
+			if code != ResponseCode::ServiceClosing {
+				// RFC says server MUST sent the 221 service closing
+				// we're still allowed to exit if it's not 221
+				eprintln!("server sent something other than a 221 to our quit.");
+			}
+
+			self.state = State::ShouldExit;
+			return None;
+		}
+
 		Some(match self.state {
 			State::Initiated => match code {
 				ResponseCode::ServiceReady => {
@@ -188,11 +200,12 @@ impl Client {
 			}
 			State::SentData => match code {
 				ResponseCode::Okay => {
-					self.state = State::ShouldExit;
+					self.state = State::SentQuit;
 					Output::Command(Quit)
 				}
 				_ => todo!(),
 			},
+			State::SentQuit => unreachable!(), // handled above
 			State::ShouldExit => unreachable!(),
 		})
 	}
@@ -210,6 +223,7 @@ enum State {
 	SendingForwardPaths,
 	SentForwardPaths,
 	SentData,
+	SentQuit,
 	ShouldExit,
 }
 

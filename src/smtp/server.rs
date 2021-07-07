@@ -71,6 +71,8 @@ impl Server {
 				}
 			}
 
+			self.command.clear();
+
 			// Data is complete
 			Some(self.got_data())
 		} else {
