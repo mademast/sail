@@ -24,10 +24,9 @@ mod test {
 			args::{Domain, Path, ReversePath},
 			ForeignMessage, ForeignPath,
 		};
-		let forward_paths = vec![ForeignPath(
-			Path::from_str(&format!("<{}>", var("TRIGGER_EMAIL").unwrap())).unwrap(),
-		)];
-		let reverse_path = ReversePath::Null;
+		let path = Path::from_str(&format!("<{}>", var("TRIGGER_EMAIL").unwrap())).unwrap();
+		let forward_paths = vec![ForeignPath(path.clone())];
+		let reverse_path = ReversePath::Regular(path);
 		let data = "".to_string();
 
 		let message = ForeignMessage {
