@@ -47,7 +47,7 @@ impl Sail {
 		let locals: Vec<ForwardPath> = forwards
 			.into_iter()
 			.filter(|forward| {
-				if self.config.forward_path_is_local(&forward) {
+				if self.config.forward_path_is_local(forward) {
 					true // locals stay in the vec
 				} else if let ForwardPath::Regular(path) = forward {
 					// get the vector for a specific domain, but if there isn't one, make it.

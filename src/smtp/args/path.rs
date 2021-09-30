@@ -65,8 +65,8 @@ impl Display for ReversePath {
 impl FromStr for Path {
 	type Err = ParsePathError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		if let Some(path) = s.strip_prefix("<") {
-			if let Some(stripped) = path.strip_suffix(">") {
+		if let Some(path) = s.strip_prefix('<') {
+			if let Some(stripped) = path.strip_suffix('>') {
 				if let Some(stripped) = stripped.strip_prefix('@') {
 					let splits: Vec<&str> = stripped.splitn(2, ':').collect();
 
