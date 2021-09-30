@@ -68,12 +68,15 @@ pub async fn listen(
 
 pub async fn relay(domain: Domain, message: ForeignMessage) -> Option<Message> {
 	match run(domain, message.clone()).await {
-		Ok(maybe_message) => maybe_message,
-		Err(err) => Into::<Message>::into(message).into_undeliverable(err.to_string()),
+		Ok(_) => None,
+		Err(err) => match err {
+			RelayError::UndeliverableMail(message) => message,
+			_ => Into::<Message>::into(message).into_undeliverable(err.to_string()),
+		},
 	}
 }
 
-async fn run(domain: Domain, message: ForeignMessage) -> Result<Option<Message>, RelayError> {
+async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> {
 	let ip = match &domain {
 		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", &domain.to_string()))
 			.await
@@ -92,10 +95,10 @@ async fn run(domain: Domain, message: ForeignMessage) -> Result<Option<Message>,
 	send_to_ip(ip, message).await
 }
 
-//todo: the return value of this function is a little weird. Ok(undeliverable) is very unintuitive. 
+//todo: the return value of this function is a little weird. Ok(undeliverable) is very unintuitive.
 //Also, when do we return a real Ok() value? It should be when we've finished sending, but in that
 //case we send an undeliverable, yea?
-async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<Option<Message>, RelayError> {
+async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayError> {
 	eprintln!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
 	let mut stream = timeout(
@@ -115,7 +118,7 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<Option<Mess
 		if read == 0 {
 			println!("Connection unexpectedly closed by server");
 			//todo: This should be an error. We'ce come so far, we can't lose the message here
-			return Ok(None);
+			return Err(RelayError::ConnectionClosed);
 		}
 
 		println!("{}", String::from_utf8_lossy(&buf[..read]));
@@ -127,7 +130,7 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<Option<Mess
 		}
 	}
 
-	Ok(client.undeliverable())
+	Err(RelayError::UndeliverableMail(client.undeliverable()))
 }
 
 #[derive(Debug, Error)]
@@ -138,6 +141,10 @@ pub enum RelayError {
 	MismatchedDomains,
 	#[error("timed out before reaching the server")]
 	ConnectionTimeout(#[from] Elapsed),
+	#[error("Connection unexpectedly closed by server")]
+	ConnectionClosed,
 	#[error("there was an error connecting to the host")]
 	ConnectionError(#[from] std::io::Error),
+	#[error("Undeliverable mail")]
+	UndeliverableMail(Option<Message>),
 }

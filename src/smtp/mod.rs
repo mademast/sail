@@ -15,16 +15,17 @@ mod test {
 
 	#[test]
 	#[ignore] //only run in CI contexts
-	fn send_trigger() { //sends a message to an email set by us
-		use std::str::FromStr;
+	fn send_trigger() {
+		//sends a message to an email set by us
+		use std::{env::var, str::FromStr};
 
 		use super::{
-			super::net,
+			super::{net, smtp::Message},
 			args::{Domain, Path, ReversePath},
 			ForeignMessage, ForeignPath,
 		};
 		let forward_paths = vec![ForeignPath(
-			Path::from_str(&format!("<{}>", std::env::var("TRIGGER_EMAIL").unwrap())).unwrap(),
+			Path::from_str(&format!("<{}>", var("TRIGGER_EMAIL").unwrap())).unwrap(),
 		)];
 		let reverse_path = ReversePath::Null;
 		let data = "".to_string();
@@ -37,10 +38,13 @@ mod test {
 
 		let future = net::relay(Domain::from_str("oracle.nove.dev").unwrap(), message);
 
-		tokio::runtime::Builder::new_current_thread()
+		let undeliverable: Option<Message> = tokio::runtime::Builder::new_current_thread()
 			.enable_all()
 			.build()
 			.unwrap()
 			.block_on(future);
+
+		dbg!(&undeliverable);
+		assert!(undeliverable.is_none())
 	}
 }
