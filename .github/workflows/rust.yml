@@ -27,8 +27,9 @@ jobs:
     
     - name: Build
       run: cargo build
-    - name: Run tests
+    - name: Run unit tests
+      run: cargo test
+    - name: Run integration tests
+      run: cargo test send_trigger -- --ignored
       env: 
         TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
-      run: cargo test
-      run: cargo test send_trigger -- --ignored
