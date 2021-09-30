@@ -28,4 +28,6 @@ jobs:
     - name: Build
       run: cargo build
     - name: Run tests
+      env: 
+        TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
       run: cargo test
