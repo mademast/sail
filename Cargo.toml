@@ -2,7 +2,7 @@
 name = "sail"
 version = "0.1.0"
 license = "ISC"
-authors = ["Brad Alfirevic <brad@genbyte.dev>", "Devon Sawatsky <novedevo@gmail.com>"]
+authors = ["Genny Alfirevic <gen@nyble.dev>", "Devon Sawatsky <novedevo@gmail.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,3 +13,5 @@ pest_derive = "2.1"
 tokio = { version = "1", features = ["full"] }
 trust-dns-resolver = "0.20"
 thiserror = "1.0"
+getopts = "0.2.21"
+confindent = "2.0.1"

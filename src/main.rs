@@ -1,9 +1,13 @@
+use confindent::Confindent;
+use getopts::Options;
 use sail::config::{Config, SailConfig};
 use sail::smtp::{
 	args::{Domain, ForwardPath},
 	ForeignMessage, ForeignPath, Message,
 };
 use std::collections::HashMap;
+use std::net::{IpAddr, SocketAddr};
+use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -109,15 +113,15 @@ impl Sail {
 
 #[tokio::main]
 async fn main() {
-	let port: u16 = std::env::args()
-		.nth(1)
-		.unwrap_or("8000".into())
-		.parse()
-		.unwrap_or(8000);
-	let listener = TcpListener::bind(("127.0.0.1", port)).await.unwrap();
+	let binconf = match BinConfig::get() {
+		Some(conf) => conf,
+		None => return,
+	};
+
+	let listener = TcpListener::bind(binconf.socket_address()).await.unwrap();
 
 	// Quick, bad config based on port for testing
-	let config = match port {
+	let config = match binconf.port {
 		25 => SailConfig {
 			hostnames: vec!["localhost".parse().unwrap()],
 			relays: vec!["nove.dev".parse().unwrap(), "genbyte.dev".parse().unwrap()],
@@ -152,4 +156,108 @@ async fn main() {
 	//we could also just await on the listener, as long as the receiver is running first.
 	listen_task.await.unwrap();
 	receive_task.await.unwrap();
+}
+
+struct BinConfig {
+	address: IpAddr,
+	port: u16,
+}
+
+impl BinConfig {
+	fn print_usage<S: AsRef<str>>(prgm: S, opts: &Options) {
+		let brief = format!("Usage: {} [options]", prgm.as_ref());
+		println!("{}", opts.usage(&brief));
+	}
+
+	pub fn socket_address(&self) -> SocketAddr {
+		SocketAddr::new(self.address, self.port)
+	}
+
+	pub fn get() -> Option<Self> {
+		let args: Vec<String> = std::env::args().collect();
+
+		let mut opts = Options::new();
+		opts.optflag("h", "help", "Print this help message");
+		opts.optopt(
+			"l",
+			"listen-address",
+			"The IP address Sail will listen for incoming connections on\nDefault: localhost",
+			"IP_ADDR",
+		);
+		opts.optopt(
+			"p",
+			"port",
+			"The port Sail will listen on\nDefault: 25",
+			"PORT",
+		);
+		opts.optopt(
+			"c",
+			"config",
+			"An alternate location to read the config from\nDefault: /etc/sail/sail.conf",
+			"PATH",
+		);
+
+		let matches = match opts.parse(&args[1..]) {
+			Ok(m) => m,
+			Err(_e) => return None,
+		};
+
+		if matches.opt_present("help") {
+			Self::print_usage(&args[0], &opts);
+			return None;
+		}
+
+		let conf_path = matches
+			.opt_str("config")
+			.unwrap_or("/etc/sail/sail.conf".into());
+		let config = match Confindent::from_file(conf_path) {
+			Ok(c) => c,
+			Err(err) => {
+				eprintln!("failed to parse conf file: {}", err);
+				return None;
+			}
+		};
+
+		// Options specified on the command line take priority. We only take the
+		// cli_key and convert to the config key internally so that we can remain
+		// consistent.
+		let find_value = |cli_key: &str| -> Option<String> {
+			let conf_key: String = cli_key
+				.clone()
+				.split('-')
+				.map(|word| {
+					// https://stackoverflow.com/a/38406885
+					let mut c = word.chars();
+					match c.next() {
+						None => String::new(),
+						Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+					}
+				})
+				.collect();
+
+			matches
+				.opt_str(cli_key)
+				.or(config.child_value(conf_key).map(|s| s.into()))
+		};
+
+		let address_string = find_value("listen-address").unwrap_or("localhost".into());
+		let address = match address_string.parse() {
+			Ok(addr) => addr,
+			Err(_e) => {
+				eprintln!("Failed to parse '{}' as an IP Address", address_string);
+				return None;
+			}
+		};
+
+		let port_string = find_value("port").unwrap_or("25".into());
+		let port = match port_string.parse() {
+			Ok(p) => p,
+			Err(_e) => {
+				eprintln!("Failed to parse '{}' as a port", port_string);
+				return None;
+			}
+		};
+
+		Some(Self { address, port })
+	}
 }
