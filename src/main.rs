@@ -96,7 +96,7 @@ impl Sail {
 		}
 
 		for (domain, message) in domains_messages {
-			tokio::spawn(sail::net::relay(domain, message, self.rx.clone()));
+			tokio::spawn(sail::net::relay(domain, message/*, self.rx.clone()*/));
 		}
 	}
 

@@ -23,6 +23,7 @@ async fn serve(
 	mut stream: TcpStream,
 	message_sender: mpsc::UnboundedSender<Message>,
 	config: Arc<dyn Config>,
+	mut rx: watch::Receiver<bool>,
 ) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(message_sender, config);
 	stream
@@ -32,7 +33,13 @@ async fn serve(
 	let mut buf = vec![0; 1024];
 
 	while !transaction.should_exit() {
-		let read = stream.read(&mut buf).await?;
+		let read = tokio::select! {
+			Ok(read) = stream.read(&mut buf) => read,
+			_ = rx.changed() => {
+				stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n").await;
+				return Ok(());
+			},
+		};
 
 		// A zero sized read, this connection has died or been terminated by the client
 		if read == 0 {
@@ -66,16 +73,21 @@ pub async fn listen(
 
 		println!("connection from {}", clientaddr);
 
-		tokio::spawn(serve(stream, message_sender.clone(), config.clone()));
+		tokio::spawn(serve(
+			stream,
+			message_sender.clone(),
+			config.clone(),
+			rx.clone(),
+		));
 	}
 }
 
 pub async fn relay(
 	domain: Domain,
 	message: ForeignMessage,
-	rx: watch::Receiver<bool>,
+	// rx: watch::Receiver<bool>,
 ) -> Option<Message> {
-	match run(domain, message.clone(), rx).await {
+	match run(domain, message.clone()/*, rx*/).await {
 		Ok(_) => None,
 		Err(err) => match err {
 			RelayError::UndeliverableMail(message) => message,
@@ -87,7 +99,7 @@ pub async fn relay(
 async fn run(
 	domain: Domain,
 	message: ForeignMessage,
-	rx: watch::Receiver<bool>,
+	// rx: watch::Receiver<bool>,
 ) -> Result<(), RelayError> {
 	for path in &message.forward_paths {
 		if path.0.domain != domain {
@@ -105,13 +117,13 @@ async fn run(
 		Domain::Literal(ip) => ip,
 	};
 
-	send_to_ip(ip, message, rx).await
+	send_to_ip(ip, message/*, rx*/).await
 }
 
 async fn send_to_ip(
 	addr: IpAddr,
 	message: ForeignMessage,
-	mut rx: watch::Receiver<bool>,
+	// mut rx: watch::Receiver<bool>,
 ) -> Result<(), RelayError> {
 	println!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
@@ -126,17 +138,18 @@ async fn send_to_ip(
 	let mut buf = vec![0; 1024];
 
 	while !client.should_exit() {
-		let read = tokio::select! {
+		let read = stream.read(&mut buf).await?;
+		/*tokio::select! {
 			_ = rx.changed() => {
 				timeout(
 					Duration::from_millis(500),
-					stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n")
+					stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n") //this is a client... we should be sending QUIT, or, even better, just continuing to send it or something lmao
 				)
 				.await??;
 				return Ok(());
 			},
 			Ok(read) = stream.read(&mut buf) => read,
-		};
+		};*/
 
 		// A zero sized read, this connection has died or been terminated by the server
 		if read == 0 {
