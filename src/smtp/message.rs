@@ -1,4 +1,4 @@
-use super::args::{ForwardPath, Path, ReversePath};
+use super::args::{ForeignPath, ForwardPath, Path, ReversePath};
 
 #[derive(Default, Clone, Debug)]
 pub struct Message {
@@ -28,7 +28,7 @@ impl Message {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![ForwardPath::Regular(reverse_path)],
-			data: reason.into(),
+			data: reason.into(), //TODO: Genny: pls make this properly formatted with headers and such, i beg of you
 		}
 	}
 
@@ -56,6 +56,51 @@ impl Message {
 			}
 
 			self.push("\r\n");
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct ForeignMessage {
+	pub reverse_path: ReversePath,
+	pub forward_paths: Vec<ForeignPath>,
+	pub data: String,
+}
+
+impl ForeignMessage {
+	pub fn from_parts(
+		reverse_path: ReversePath,
+		forward_paths: Vec<ForeignPath>,
+		data: String,
+	) -> Self {
+		Self {
+			reverse_path,
+			forward_paths,
+			data,
+		}
+	}
+}
+
+impl Default for ForeignMessage {
+	fn default() -> Self {
+		Self {
+			reverse_path: ReversePath::Null,
+			forward_paths: vec![],
+			data: String::new(),
+		}
+	}
+}
+
+impl From<ForeignMessage> for Message {
+	fn from(other: ForeignMessage) -> Self {
+		Self {
+			reverse_path: other.reverse_path,
+			forward_paths: other
+				.forward_paths
+				.into_iter()
+				.map(|fpath| fpath.into())
+				.collect(),
+			data: other.data,
 		}
 	}
 }

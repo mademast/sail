@@ -2,32 +2,35 @@ use confindent::Confindent;
 use getopts::Options;
 use sail::config::{Config, SailConfig};
 use sail::smtp::{
-	args::{Domain, ForwardPath},
-	ForeignMessage, ForeignPath, Message,
+	args::{Domain, ForeignPath, ForwardPath},
+	ForeignMessage, Message,
 };
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
-use tokio::task::JoinHandle;
+use tokio::sync::mpsc;
+use tokio::sync::watch;
 
 struct Sail {
 	config: Arc<SailConfig>,
-	sender: UnboundedSender<Message>,
-
-	delivery_tasks: Vec<JoinHandle<Option<Message>>>,
+	sender: mpsc::UnboundedSender<Message>,
 	local_messages: Vec<Message>,
 	foreign_messages: Vec<(Domain, ForeignMessage)>,
+	rx: watch::Receiver<bool>,
 }
 
 impl Sail {
-	async fn receive_messages(mut self, mut receiver: UnboundedReceiver<Message>) {
+	async fn receive_messages(
+		mut self,
+		mut receiver: mpsc::UnboundedReceiver<Message>,
+		sender: mpsc::UnboundedSender<Message>,
+	) {
 		loop {
-			let message = receiver
-				.recv()
-				.await
-				.expect("No more senders, what happened?"); //TODO: Not this! Handle the error
+			let message = tokio::select! {
+				_ = self.rx.changed() => break,
+				Some(message) = receiver.recv() => message
+			};
 
 			self.handle_message(message);
 
@@ -82,22 +85,23 @@ impl Sail {
 			.collect();
 
 		if !locals.is_empty() {
-			self.delivery_tasks
-				.push(tokio::spawn(Self::deliver_local(Message {
+			tokio::spawn(Self::deliver_local(
+				Message {
 					reverse_path: reverse,
 					forward_paths: locals,
 					data,
-				})));
+				},
+				self.rx.clone(),
+			));
 		}
 
 		for (domain, message) in domains_messages {
-			self.delivery_tasks
-				.push(tokio::spawn(sail::net::relay(domain, message)));
+			tokio::spawn(sail::net::relay(domain, message /*, self.rx.clone()*/));
 		}
 	}
 
-	//todo: save to fs. Return an undeliverable message if we can't
-	async fn deliver_local(message: Message) -> Option<Message> {
+	//todo: save to fs. Return an undeliverable message if we can't. remember to watch for shutdown signals
+	async fn deliver_local(message: Message, rx: watch::Receiver<bool>) -> Option<Message> {
 		let (reverse, forwards, data) = message.into_parts();
 
 		print!("REVERSE: {}\nLOCAL TO:", reverse);
@@ -133,28 +137,56 @@ async fn main() {
 		},
 	};
 
-	let (sender, receiver) = unbounded_channel();
+	let (tx, rx) = tokio::sync::watch::channel(false);
+
+	let (sender, receiver) = mpsc::unbounded_channel();
 	let sail = Sail {
 		config: Arc::new(config),
 		sender: sender.clone(),
-
-		delivery_tasks: vec![],
 		local_messages: vec![],
 		foreign_messages: vec![],
+		rx: rx.clone(),
 	};
 
 	// make the arc before we move sail into receive_messages. Ideally we'd do
 	// something else so we can update the config later, but we are currently not
 	// architected for that
 	let dynconf = sail.config.clone();
-	let receive_task = tokio::spawn(sail.receive_messages(receiver));
-	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf));
+	let receive_task = tokio::spawn(sail.receive_messages(receiver, sender.clone()));
+	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf, rx));
+	let signal_listener = tokio::spawn(async {
+		use tokio::signal::unix::{signal, SignalKind};
+		let mut a = (
+			tokio::signal::ctrl_c(),
+			signal(SignalKind::alarm()).unwrap(),
+			signal(SignalKind::hangup()).unwrap(),
+			signal(SignalKind::interrupt()).unwrap(),
+			signal(SignalKind::pipe()).unwrap(),
+			signal(SignalKind::quit()).unwrap(),
+			signal(SignalKind::terminate()).unwrap(),
+			signal(SignalKind::user_defined1()).unwrap(),
+			signal(SignalKind::user_defined2()).unwrap(),
+		);
+		tokio::select! {
+			_ = a.0 => (),
+			_ = a.1.recv() => (),
+			_ = a.2.recv() => (),
+			_ = a.3.recv() => (),
+			_ = a.4.recv() => (),
+			_ = a.5.recv() => (),
+			_ = a.6.recv() => (),
+			_ = a.7.recv() => ()
+		};
+	});
 
-	// Maybe we join or something? At some point we have to handle graceful shutdowns
-	// so we'd need to handle that somehow. Some way to tell both things to shutdown.
-	// we could also just await on the listener, as long as the receiver is running first.
-	listen_task.await.unwrap();
-	receive_task.await.unwrap();
+	//TODO: handle graceful shutdowns
+	#[allow(unused_must_use)]
+	{
+		signal_listener.await;
+		println!("\nReceived shutdown signal, beginning graceful shutdown...");
+		tx.send(true);
+		tokio::join!(listen_task, receive_task);
+	}
 }
 
 struct BinConfig {
@@ -162,6 +194,7 @@ struct BinConfig {
 	port: u16,
 }
 
+#[allow(clippy::or_fun_call)]
 impl BinConfig {
 	fn print_usage<S: AsRef<str>>(prgm: S, opts: &Options) {
 		let brief = format!("Usage: {} [options]", prgm.as_ref());
@@ -209,12 +242,16 @@ impl BinConfig {
 		let conf_path = matches
 			.opt_str("config")
 			.unwrap_or("/etc/sail/sail.conf".into());
+
 		let config = match Confindent::from_file(conf_path) {
 			Ok(c) => c,
-			Err(err) => {
-				eprintln!("failed to parse conf file: {}", err);
-				return None;
-			}
+			Err(_) => match Confindent::from_file("sail.conf") {
+				Ok(c) => c,
+				Err(err) => {
+					eprintln!("failed to parse conf file: {}", err);
+					return None;
+				}
+			},
 		};
 
 		// Options specified on the command line take priority. We only take the
@@ -222,7 +259,6 @@ impl BinConfig {
 		// consistent.
 		let find_value = |cli_key: &str| -> Option<String> {
 			let conf_key: String = cli_key
-				.clone()
 				.split('-')
 				.map(|word| {
 					// https://stackoverflow.com/a/38406885

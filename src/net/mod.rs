@@ -4,7 +4,7 @@ use thiserror::Error;
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
 	net::{TcpListener, TcpStream},
-	sync::mpsc::UnboundedSender as Sender,
+	sync::{mpsc, watch},
 	time::{error::Elapsed, timeout},
 };
 
@@ -21,8 +21,9 @@ pub mod dns;
 // handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
 async fn serve(
 	mut stream: TcpStream,
-	message_sender: Sender<Message>,
+	message_sender: mpsc::UnboundedSender<Message>,
 	config: Arc<dyn Config>,
+	mut rx: watch::Receiver<bool>,
 ) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(message_sender, config);
 	stream
@@ -32,7 +33,13 @@ async fn serve(
 	let mut buf = vec![0; 1024];
 
 	while !transaction.should_exit() {
-		let read = stream.read(&mut buf).await?;
+		let read = tokio::select! {
+			Ok(read) = stream.read(&mut buf) => read,
+			_ = rx.changed() => {
+				stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n").await;
+				return Ok(());
+			},
+		};
 
 		// A zero sized read, this connection has died or been terminated by the client
 		if read == 0 {
@@ -54,52 +61,71 @@ async fn serve(
 //waits for new connections, dispatches new task to handle each new inbound connection
 pub async fn listen(
 	listener: TcpListener,
-	message_sender: Sender<Message>,
+	message_sender: mpsc::UnboundedSender<Message>,
 	config: Arc<dyn Config>,
+	mut rx: watch::Receiver<bool>,
 ) {
 	loop {
-		let (stream, clientaddr) = listener.accept().await.unwrap();
+		let (stream, clientaddr) = tokio::select! {
+			_ = rx.changed() => break,
+			Ok((stream, clientaddr)) = listener.accept() => (stream, clientaddr)
+		};
 
 		println!("connection from {}", clientaddr);
 
-		tokio::spawn(serve(stream, message_sender.clone(), config.clone()));
+		tokio::spawn(serve(
+			stream,
+			message_sender.clone(),
+			config.clone(),
+			rx.clone(),
+		));
 	}
 }
 
-pub async fn relay(domain: Domain, message: ForeignMessage) -> Option<Message> {
-	match run(domain, message.clone()).await {
+pub async fn relay(
+	domain: Domain,
+	message: ForeignMessage,
+	// rx: watch::Receiver<bool>,
+) -> Option<Message> {
+	match run(domain, message.clone()/*, rx*/).await {
 		Ok(_) => None,
 		Err(err) => match err {
 			RelayError::UndeliverableMail(message) => message,
-			_ => Into::<Message>::into(message).into_undeliverable(err.to_string()),
+			_ => Into::<Message>::into(message).into_undeliverable(err.to_string()), //FIXME: this is incomprehensible. how do left swimming turbofish work
 		},
 	}
 }
 
-async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> {
-	let ip = match &domain {
-		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", &domain.to_string()))
-			.await
-			.unwrap()
-			.next_address()
-			.await
-			.unwrap(),
-		Domain::Literal(ip) => ip.to_owned(),
-	};
+async fn run(
+	domain: Domain,
+	message: ForeignMessage,
+	// rx: watch::Receiver<bool>,
+) -> Result<(), RelayError> {
 	for path in &message.forward_paths {
 		if path.0.domain != domain {
 			return Err(RelayError::MismatchedDomains);
 		}
 	}
 
-	send_to_ip(ip, message).await
+	let ip = match domain {
+		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", domain))
+			.await
+			.unwrap()
+			.next_address()
+			.await
+			.unwrap(),
+		Domain::Literal(ip) => ip,
+	};
+
+	send_to_ip(ip, message/*, rx*/).await
 }
 
-//todo: the return value of this function is a little weird. Ok(undeliverable) is very unintuitive.
-//Also, when do we return a real Ok() value? It should be when we've finished sending, but in that
-//case we send an undeliverable, yea?
-async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayError> {
-	eprintln!("{}:{}", addr, 25);
+async fn send_to_ip(
+	addr: IpAddr,
+	message: ForeignMessage,
+	// mut rx: watch::Receiver<bool>,
+) -> Result<(), RelayError> {
+	println!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
 	let mut stream = timeout(
 		Duration::from_millis(2500),
@@ -112,12 +138,22 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayEr
 	let mut buf = vec![0; 1024];
 
 	while !client.should_exit() {
-		let read = stream.read(&mut buf).await.unwrap();
+		let read = stream.read(&mut buf).await?;
+		/*tokio::select! {
+			_ = rx.changed() => {
+				timeout(
+					Duration::from_millis(500),
+					stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n") //this is a client... we should be sending QUIT, or, even better, just continuing to send it or something lmao
+				)
+				.await??;
+				return Ok(());
+			},
+			Ok(read) = stream.read(&mut buf) => read,
+		};*/
 
 		// A zero sized read, this connection has died or been terminated by the server
 		if read == 0 {
-			println!("Connection unexpectedly closed by server");
-			//todo: This should be an error. We'ce come so far, we can't lose the message here
+			eprintln!("Connection unexpectedly closed by server");
 			return Err(RelayError::ConnectionClosed);
 		}
 
@@ -126,7 +162,11 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayEr
 
 		if let Some(command) = command {
 			println!("{}", command.to_string());
-			stream.write_all(command.to_string().as_bytes()).await?;
+			timeout(
+				Duration::from_millis(500),
+				stream.write_all(command.to_string().as_bytes()),
+			)
+			.await??;
 		}
 	}
 
