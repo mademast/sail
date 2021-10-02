@@ -5,9 +5,9 @@ mod message;
 mod response;
 mod server;
 
-pub use client::{Client, ForeignMessage, ForeignPath};
+pub use client::Client;
 pub use command::Command;
-pub use message::Message;
+pub use message::*;
 pub use response::{Response, ResponseCode};
 pub use server::Server;
 
@@ -21,8 +21,8 @@ mod test {
 
 		use super::{
 			super::{net, smtp::Message},
-			args::{Domain, Path, ReversePath},
-			ForeignMessage, ForeignPath,
+			args::{Domain, ForeignPath, Path, ReversePath},
+			ForeignMessage,
 		};
 		let path = Path::from_str(&format!("<{}>", var("TRIGGER_EMAIL").unwrap())).unwrap();
 		let forward_paths = vec![ForeignPath(path.clone())];

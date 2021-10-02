@@ -149,3 +149,14 @@ pub enum ParsePathError {
 	#[error("invalid domain")]
 	InvalidDomain(#[from] ParseDomainError),
 }
+
+/// A small wrapper around Path as a type-checked, compile-time feature to try
+// and stop us from doing stupid things and trying to relay local messages.
+#[derive(Debug, Clone)]
+pub struct ForeignPath(pub Path);
+
+impl From<ForeignPath> for ForwardPath {
+	fn from(other: ForeignPath) -> Self {
+		Self::Regular(other.0)
+	}
+}

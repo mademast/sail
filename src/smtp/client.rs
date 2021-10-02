@@ -3,66 +3,10 @@ use std::fmt::Display;
 use crate::smtp::Response;
 
 use super::{
-	args::{ForwardPath, Path, ReversePath},
+	args::{ForeignPath, ForwardPath, Path, ReversePath},
 	Command::*,
-	Message, ResponseCode,
+	ForeignMessage, Message, ResponseCode,
 };
-
-/// A small wrapper around Path as a type-checked, compile-time feature to try
-// and stop us from doing stupid things and trying to relay local messages.
-#[derive(Debug, Clone)]
-pub struct ForeignPath(pub Path);
-
-impl From<ForeignPath> for ForwardPath {
-	fn from(other: ForeignPath) -> Self {
-		Self::Regular(other.0)
-	}
-}
-
-#[derive(Debug, Clone)]
-pub struct ForeignMessage {
-	pub reverse_path: ReversePath,
-	pub forward_paths: Vec<ForeignPath>,
-	pub data: String,
-}
-
-impl ForeignMessage {
-	pub fn from_parts(
-		reverse_path: ReversePath,
-		forward_paths: Vec<ForeignPath>,
-		data: String,
-	) -> Self {
-		Self {
-			reverse_path,
-			forward_paths,
-			data,
-		}
-	}
-}
-
-impl Default for ForeignMessage {
-	fn default() -> Self {
-		Self {
-			reverse_path: ReversePath::Null,
-			forward_paths: vec![],
-			data: String::new(),
-		}
-	}
-}
-
-impl From<ForeignMessage> for Message {
-	fn from(other: ForeignMessage) -> Self {
-		Self {
-			reverse_path: other.reverse_path,
-			forward_paths: other
-				.forward_paths
-				.into_iter()
-				.map(|fpath| fpath.into())
-				.collect(),
-			data: other.data,
-		}
-	}
-}
 
 #[derive(Default, Clone)]
 pub struct Client {

@@ -2,17 +2,15 @@ use confindent::Confindent;
 use getopts::Options;
 use sail::config::{Config, SailConfig};
 use sail::smtp::{
-	args::{Domain, ForwardPath},
-	ForeignMessage, ForeignPath, Message,
+	args::{Domain, ForeignPath, ForwardPath},
+	ForeignMessage, Message,
 };
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
-use tokio::task::JoinHandle;
 
 struct Sail {
 	config: Arc<SailConfig>,
@@ -23,7 +21,11 @@ struct Sail {
 }
 
 impl Sail {
-	async fn receive_messages(mut self, mut receiver: mpsc::UnboundedReceiver<Message>) {
+	async fn receive_messages(
+		mut self,
+		mut receiver: mpsc::UnboundedReceiver<Message>,
+		sender: mpsc::UnboundedSender<Message>,
+	) {
 		loop {
 			let message = tokio::select! {
 				_ = self.rx.changed() => break,
@@ -150,7 +152,7 @@ async fn main() {
 	// something else so we can update the config later, but we are currently not
 	// architected for that
 	let dynconf = sail.config.clone();
-	let receive_task = tokio::spawn(sail.receive_messages(receiver));
+	let receive_task = tokio::spawn(sail.receive_messages(receiver, sender.clone()));
 	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf, rx));
 	let signal_listener = tokio::spawn(async {
 		use tokio::signal::unix::{signal, SignalKind};
