@@ -150,12 +150,34 @@ async fn main() {
 	let dynconf = sail.config.clone();
 	let receive_task = tokio::spawn(sail.receive_messages(receiver));
 	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf));
+	let signal_listener = tokio::spawn(async {
+		use tokio::signal::unix::{signal, SignalKind};
+		let mut a = (
+			tokio::signal::ctrl_c(),
+			signal(SignalKind::alarm()).unwrap(),
+			signal(SignalKind::hangup()).unwrap(),
+			signal(SignalKind::interrupt()).unwrap(),
+			signal(SignalKind::pipe()).unwrap(),
+			signal(SignalKind::quit()).unwrap(),
+			signal(SignalKind::terminate()).unwrap(),
+			signal(SignalKind::user_defined1()).unwrap(),
+			signal(SignalKind::user_defined2()).unwrap(),
+		);
+		tokio::select! {
+			_ = a.0 => (),
+			_ = a.1.recv() => (),
+			_ = a.2.recv() => (),
+			_ = a.3.recv() => (),
+			_ = a.4.recv() => (),
+			_ = a.5.recv() => (),
+			_ = a.6.recv() => (),
+			_ = a.7.recv() => ()
+		};
+	});
 
-	// Maybe we join or something? At some point we have to handle graceful shutdowns
-	// so we'd need to handle that somehow. Some way to tell both things to shutdown.
-	//we could also just await on the listener, as long as the receiver is running first.
-	listen_task.await.unwrap();
-	receive_task.await.unwrap();
+	//TODO: handle graceful shutdowns
+	signal_listener.await;
+	println!("\nReceived shutdown signal, dying...")
 }
 
 struct BinConfig {
