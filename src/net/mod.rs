@@ -70,17 +70,25 @@ pub async fn listen(
 	}
 }
 
-pub async fn relay(domain: Domain, message: ForeignMessage) -> Option<Message> {
-	match run(domain, message.clone()).await {
+pub async fn relay(
+	domain: Domain,
+	message: ForeignMessage,
+	rx: watch::Receiver<bool>,
+) -> Option<Message> {
+	match run(domain, message.clone(), rx).await {
 		Ok(_) => None,
 		Err(err) => match err {
 			RelayError::UndeliverableMail(message) => message,
-			_ => Into::<Message>::into(message).into_undeliverable(err.to_string()),
+			_ => Into::<Message>::into(message).into_undeliverable(err.to_string()), //FIXME: this is incomprehensible. how do left swimming turbofish work
 		},
 	}
 }
 
-async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> {
+async fn run(
+	domain: Domain,
+	message: ForeignMessage,
+	rx: watch::Receiver<bool>,
+) -> Result<(), RelayError> {
 	let ip = match &domain {
 		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", &domain.to_string()))
 			.await
@@ -96,13 +104,14 @@ async fn run(domain: Domain, message: ForeignMessage) -> Result<(), RelayError> 
 		}
 	}
 
-	send_to_ip(ip, message).await
+	send_to_ip(ip, message, rx).await
 }
 
-//todo: the return value of this function is a little weird. Ok(undeliverable) is very unintuitive.
-//Also, when do we return a real Ok() value? It should be when we've finished sending, but in that
-//case we send an undeliverable, yea?
-async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayError> {
+async fn send_to_ip(
+	addr: IpAddr,
+	message: ForeignMessage,
+	mut rx: watch::Receiver<bool>,
+) -> Result<(), RelayError> {
 	eprintln!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
 	let mut stream = timeout(
@@ -116,7 +125,17 @@ async fn send_to_ip(addr: IpAddr, message: ForeignMessage) -> Result<(), RelayEr
 	let mut buf = vec![0; 1024];
 
 	while !client.should_exit() {
-		let read = stream.read(&mut buf).await.unwrap();
+		let read = tokio::select! {
+			_ = rx.changed() => {
+				timeout(
+					Duration::from_millis(100),
+					stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n")
+				)
+				.await??;
+				return Ok(());
+			},
+			Ok(read) = stream.read(&mut buf) => read,
+		};
 
 		// A zero sized read, this connection has died or been terminated by the server
 		if read == 0 {

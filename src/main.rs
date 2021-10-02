@@ -17,21 +17,16 @@ use tokio::task::JoinHandle;
 struct Sail {
 	config: Arc<SailConfig>,
 	sender: mpsc::UnboundedSender<Message>,
-
-	delivery_tasks: Vec<JoinHandle<Option<Message>>>,
 	local_messages: Vec<Message>,
 	foreign_messages: Vec<(Domain, ForeignMessage)>,
+	rx: watch::Receiver<bool>,
 }
 
 impl Sail {
-	async fn receive_messages(
-		mut self,
-		mut receiver: mpsc::UnboundedReceiver<Message>,
-		mut rx: watch::Receiver<bool>,
-	) {
+	async fn receive_messages(mut self, mut receiver: mpsc::UnboundedReceiver<Message>) {
 		loop {
 			let message = tokio::select! {
-				_ = rx.changed() => break,
+				_ = self.rx.changed() => break,
 				Some(message) = receiver.recv() => message
 			};
 
@@ -88,22 +83,23 @@ impl Sail {
 			.collect();
 
 		if !locals.is_empty() {
-			self.delivery_tasks
-				.push(tokio::spawn(Self::deliver_local(Message {
+			tokio::spawn(Self::deliver_local(
+				Message {
 					reverse_path: reverse,
 					forward_paths: locals,
 					data,
-				})));
+				},
+				self.rx.clone(),
+			));
 		}
 
 		for (domain, message) in domains_messages {
-			self.delivery_tasks
-				.push(tokio::spawn(sail::net::relay(domain, message)));
+			tokio::spawn(sail::net::relay(domain, message, self.rx.clone()));
 		}
 	}
 
-	//todo: save to fs. Return an undeliverable message if we can't
-	async fn deliver_local(message: Message) -> Option<Message> {
+	//todo: save to fs. Return an undeliverable message if we can't. remember to watch for shutdown signals
+	async fn deliver_local(message: Message, rx: watch::Receiver<bool>) -> Option<Message> {
 		let (reverse, forwards, data) = message.into_parts();
 
 		print!("REVERSE: {}\nLOCAL TO:", reverse);
@@ -139,22 +135,22 @@ async fn main() {
 		},
 	};
 
+	let (tx, rx) = tokio::sync::watch::channel(false);
+
 	let (sender, receiver) = mpsc::unbounded_channel();
 	let sail = Sail {
 		config: Arc::new(config),
 		sender: sender.clone(),
-
-		delivery_tasks: vec![],
 		local_messages: vec![],
 		foreign_messages: vec![],
+		rx: rx.clone(),
 	};
 
 	// make the arc before we move sail into receive_messages. Ideally we'd do
 	// something else so we can update the config later, but we are currently not
 	// architected for that
-	let (tx, mut rx) = tokio::sync::watch::channel(false);
 	let dynconf = sail.config.clone();
-	let receive_task = tokio::spawn(sail.receive_messages(receiver, rx.clone()));
+	let receive_task = tokio::spawn(sail.receive_messages(receiver));
 	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf, rx));
 	let signal_listener = tokio::spawn(async {
 		use tokio::signal::unix::{signal, SignalKind};

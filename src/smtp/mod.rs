@@ -34,8 +34,8 @@ mod test {
 			reverse_path,
 			data,
 		};
-
-		let future = net::relay(Domain::from_str("oracle.nove.dev").unwrap(), message);
+		let (_, rx) = tokio::sync::watch::channel(false);
+		let future = net::relay(Domain::from_str("oracle.nove.dev").unwrap(), message, rx);
 
 		let undeliverable: Option<Message> = tokio::runtime::Builder::new_current_thread()
 			.enable_all()
