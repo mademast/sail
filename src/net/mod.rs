@@ -4,7 +4,7 @@ use thiserror::Error;
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
 	net::{TcpListener, TcpStream},
-	sync::mpsc::UnboundedSender as Sender,
+	sync::{mpsc, watch},
 	time::{error::Elapsed, timeout},
 };
 
@@ -21,7 +21,7 @@ pub mod dns;
 // handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
 async fn serve(
 	mut stream: TcpStream,
-	message_sender: Sender<Message>,
+	message_sender: mpsc::UnboundedSender<Message>,
 	config: Arc<dyn Config>,
 ) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(message_sender, config);
@@ -54,10 +54,14 @@ async fn serve(
 //waits for new connections, dispatches new task to handle each new inbound connection
 pub async fn listen(
 	listener: TcpListener,
-	message_sender: Sender<Message>,
+	message_sender: mpsc::UnboundedSender<Message>,
 	config: Arc<dyn Config>,
+	rx: watch::Receiver<bool>,
 ) {
 	loop {
+		if *rx.borrow() {
+			break;
+		}
 		let (stream, clientaddr) = listener.accept().await.unwrap();
 
 		println!("connection from {}", clientaddr);

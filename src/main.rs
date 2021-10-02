@@ -10,12 +10,13 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc;
+use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 struct Sail {
 	config: Arc<SailConfig>,
-	sender: UnboundedSender<Message>,
+	sender: mpsc::UnboundedSender<Message>,
 
 	delivery_tasks: Vec<JoinHandle<Option<Message>>>,
 	local_messages: Vec<Message>,
@@ -23,7 +24,11 @@ struct Sail {
 }
 
 impl Sail {
-	async fn receive_messages(mut self, mut receiver: UnboundedReceiver<Message>) {
+	async fn receive_messages(
+		mut self,
+		mut receiver: mpsc::UnboundedReceiver<Message>,
+		mut rx: watch::Receiver<bool>,
+	) {
 		loop {
 			let message = receiver
 				.recv()
@@ -134,7 +139,7 @@ async fn main() {
 		},
 	};
 
-	let (sender, receiver) = unbounded_channel();
+	let (sender, receiver) = mpsc::unbounded_channel();
 	let sail = Sail {
 		config: Arc::new(config),
 		sender: sender.clone(),
@@ -147,9 +152,10 @@ async fn main() {
 	// make the arc before we move sail into receive_messages. Ideally we'd do
 	// something else so we can update the config later, but we are currently not
 	// architected for that
+	let (tx, mut rx) = tokio::sync::watch::channel(false);
 	let dynconf = sail.config.clone();
-	let receive_task = tokio::spawn(sail.receive_messages(receiver));
-	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf));
+	let receive_task = tokio::spawn(sail.receive_messages(receiver, rx.clone()));
+	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf, rx));
 	let signal_listener = tokio::spawn(async {
 		use tokio::signal::unix::{signal, SignalKind};
 		let mut a = (
@@ -176,8 +182,13 @@ async fn main() {
 	});
 
 	//TODO: handle graceful shutdowns
-	signal_listener.await;
-	println!("\nReceived shutdown signal, dying...")
+	#[allow(unused_must_use)]
+	{
+		signal_listener.await;
+		println!("\nReceived shutdown signal, beginning graceful shutdown...");
+		tx.send(true);
+		tokio::join!(listen_task, receive_task);
+	}
 }
 
 struct BinConfig {
@@ -185,6 +196,7 @@ struct BinConfig {
 	port: u16,
 }
 
+#[allow(clippy::or_fun_call)]
 impl BinConfig {
 	fn print_usage<S: AsRef<str>>(prgm: S, opts: &Options) {
 		let brief = format!("Usage: {} [options]", prgm.as_ref());
@@ -235,7 +247,7 @@ impl BinConfig {
 
 		let config = match Confindent::from_file(conf_path) {
 			Ok(c) => c,
-			Err(err) => match Confindent::from_file("sail.conf") {
+			Err(_) => match Confindent::from_file("sail.conf") {
 				Ok(c) => c,
 				Err(err) => {
 					eprintln!("failed to parse conf file: {}", err);
@@ -249,7 +261,6 @@ impl BinConfig {
 		// consistent.
 		let find_value = |cli_key: &str| -> Option<String> {
 			let conf_key: String = cli_key
-				.clone()
 				.split('-')
 				.map(|word| {
 					// https://stackoverflow.com/a/38406885
