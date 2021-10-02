@@ -7,7 +7,6 @@ use sail::smtp::{
 };
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -32,14 +31,14 @@ impl Sail {
 
 			self.handle_message(message);
 
-			//Here we'd check if we relay or save and act appropriately. but FIRST we should write
-			//it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
-			//try once, as that shouldn't take long, and then if we fail we write?
+			// Here we'd check if we relay or save and act appropriately. but FIRST we should write
+			// it to the FS as the RFC says that we should not lose messages if we crash. Maybe we
+			// try once, as that shouldn't take long, and then if we fail we write?
 
 			// put the runner in Client, or another struct that sits above client.
-			//it should try once, then write to disk and sleep for a while.
-			//rfc guidelines help.
-			//client should be like server; not handling any networking or async anything, just interacting with strings.
+			// it should try once, then write to disk and sleep for a while.
+			// rfc guidelines help.
+			// client should be like server; not handling any networking or async anything, just interacting with strings.
 		}
 	}
 
@@ -153,7 +152,7 @@ async fn main() {
 
 	// Maybe we join or something? At some point we have to handle graceful shutdowns
 	// so we'd need to handle that somehow. Some way to tell both things to shutdown.
-	//we could also just await on the listener, as long as the receiver is running first.
+	// we could also just await on the listener, as long as the receiver is running first.
 	listen_task.await.unwrap();
 	receive_task.await.unwrap();
 }
