@@ -89,20 +89,21 @@ async fn run(
 	message: ForeignMessage,
 	rx: watch::Receiver<bool>,
 ) -> Result<(), RelayError> {
-	let ip = match &domain {
-		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", &domain.to_string()))
-			.await
-			.unwrap()
-			.next_address()
-			.await
-			.unwrap(),
-		Domain::Literal(ip) => ip.to_owned(),
-	};
 	for path in &message.forward_paths {
 		if path.0.domain != domain {
 			return Err(RelayError::MismatchedDomains);
 		}
 	}
+
+	let ip = match domain {
+		Domain::FQDN(domain) => DnsLookup::new(&format!("{}.", domain))
+			.await
+			.unwrap()
+			.next_address()
+			.await
+			.unwrap(),
+		Domain::Literal(ip) => ip,
+	};
 
 	send_to_ip(ip, message, rx).await
 }
@@ -112,7 +113,7 @@ async fn send_to_ip(
 	message: ForeignMessage,
 	mut rx: watch::Receiver<bool>,
 ) -> Result<(), RelayError> {
-	eprintln!("{}:{}", addr, 25);
+	println!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
 	let mut stream = timeout(
 		Duration::from_millis(2500),
@@ -128,7 +129,7 @@ async fn send_to_ip(
 		let read = tokio::select! {
 			_ = rx.changed() => {
 				timeout(
-					Duration::from_millis(100),
+					Duration::from_millis(500),
 					stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n")
 				)
 				.await??;
@@ -139,8 +140,7 @@ async fn send_to_ip(
 
 		// A zero sized read, this connection has died or been terminated by the server
 		if read == 0 {
-			println!("Connection unexpectedly closed by server");
-			//todo: This should be an error. We'ce come so far, we can't lose the message here
+			eprintln!("Connection unexpectedly closed by server");
 			return Err(RelayError::ConnectionClosed);
 		}
 
@@ -149,7 +149,11 @@ async fn send_to_ip(
 
 		if let Some(command) = command {
 			println!("{}", command.to_string());
-			stream.write_all(command.to_string().as_bytes()).await?;
+			timeout(
+				Duration::from_millis(500),
+				stream.write_all(command.to_string().as_bytes()),
+			)
+			.await??;
 		}
 	}
 
