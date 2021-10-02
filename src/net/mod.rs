@@ -56,13 +56,13 @@ pub async fn listen(
 	listener: TcpListener,
 	message_sender: mpsc::UnboundedSender<Message>,
 	config: Arc<dyn Config>,
-	rx: watch::Receiver<bool>,
+	mut rx: watch::Receiver<bool>,
 ) {
 	loop {
-		if *rx.borrow() {
-			break;
-		}
-		let (stream, clientaddr) = listener.accept().await.unwrap();
+		let (stream, clientaddr) = tokio::select! {
+			_ = rx.changed() => break,
+			Ok((stream, clientaddr)) = listener.accept() => (stream, clientaddr)
+		};
 
 		println!("connection from {}", clientaddr);
 

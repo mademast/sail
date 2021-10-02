@@ -30,10 +30,10 @@ impl Sail {
 		mut rx: watch::Receiver<bool>,
 	) {
 		loop {
-			let message = receiver
-				.recv()
-				.await
-				.expect("No more senders, what happened?"); //TODO: Not this! Handle the error
+			let message = tokio::select! {
+				_ = rx.changed() => break,
+				Some(message) = receiver.recv() => message
+			};
 
 			self.handle_message(message);
 
