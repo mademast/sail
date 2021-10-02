@@ -28,7 +28,7 @@ impl Message {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![ForwardPath::Regular(reverse_path)],
-			data: reason.into(),
+			data: reason.into(), //TODO: Genny: pls make this properly formatted with headers and such, i beg of you
 		}
 	}
 
@@ -103,9 +103,4 @@ impl From<ForeignMessage> for Message {
 			data: other.data,
 		}
 	}
-}
-
-pub struct UndeliverableNotice {
-	pub forward_path: ForwardPath,
-	pub reason: String,
 }
