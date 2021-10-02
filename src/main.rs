@@ -232,12 +232,16 @@ impl BinConfig {
 		let conf_path = matches
 			.opt_str("config")
 			.unwrap_or("/etc/sail/sail.conf".into());
+
 		let config = match Confindent::from_file(conf_path) {
 			Ok(c) => c,
-			Err(err) => {
-				eprintln!("failed to parse conf file: {}", err);
-				return None;
-			}
+			Err(err) => match Confindent::from_file("sail.conf") {
+				Ok(c) => c,
+				Err(err) => {
+					eprintln!("failed to parse conf file: {}", err);
+					return None;
+				}
+			},
 		};
 
 		// Options specified on the command line take priority. We only take the
