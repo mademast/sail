@@ -10,15 +10,18 @@ use tokio::{
 	sync::{mpsc, watch},
 };
 
+use crate::sailconfig::SailConfig;
+
 //runs as long as the user remains connected
 // handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
 async fn serve(
 	mut stream: TcpStream,
 	message_sender: mpsc::UnboundedSender<Message>,
-	config: Arc<dyn Config>,
+	config: Arc<SailConfig>,
 	mut rx: watch::Receiver<bool>,
 ) -> io::Result<()> {
-	let (mut transaction, inital_response) = Server::initiate(message_sender, config);
+	let (mut transaction, inital_response) =
+		Server::initiate(message_sender, Box::new(config.as_ref().clone()));
 	stream
 		.write_all(inital_response.as_string().as_bytes())
 		.await?;
@@ -55,7 +58,7 @@ async fn serve(
 pub async fn listen(
 	listener: TcpListener,
 	message_sender: mpsc::UnboundedSender<Message>,
-	config: Arc<dyn Config>,
+	config: Arc<SailConfig>,
 	mut rx: watch::Receiver<bool>,
 ) {
 	loop {

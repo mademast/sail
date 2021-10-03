@@ -10,7 +10,7 @@ use super::{
 };
 
 pub struct Server {
-	config: Arc<dyn Config>,
+	config: Box<dyn Config>,
 	message_sender: Sender<Message>,
 	state: State,
 	command: String,
@@ -18,8 +18,8 @@ pub struct Server {
 }
 
 impl Server {
-	pub fn initiate(message_sender: Sender<Message>, config: Arc<dyn Config>) -> (Self, Response) {
-		let primary_host = config.as_ref().primary_host();
+	pub fn initiate(message_sender: Sender<Message>, config: Box<dyn Config>) -> (Self, Response) {
+		let primary_host = config.primary_host();
 		(
 			Self {
 				config,
@@ -180,7 +180,7 @@ impl Server {
 			match forward_path {
 				ForwardPath::Postmaster => self.add_rcpt(forward_path),
 				ForwardPath::Regular(path) => {
-					if self.config.as_ref().path_is_valid(path) {
+					if self.config.path_is_valid(path) {
 						self.add_rcpt(forward_path)
 					} else {
 						Self::bad_command() //todo: correct responses

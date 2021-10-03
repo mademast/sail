@@ -1,15 +1,21 @@
 mod net;
+mod sailconfig;
 
-use confindent::Confindent;
-use getopts::Options;
-use sail::config::{Config, SailConfig};
+use sailconfig::SailConfig;
+
+use std::collections::HashMap;
+use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
+
+use sail::config::Config;
 use sail::smtp::{
 	args::{Domain, ForeignPath, ForwardPath},
 	ForeignMessage, Message,
 };
-use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
+
+use confindent::Confindent;
+use getopts::Options;
+
 use tokio::net::TcpListener;
 use tokio::sync::mpsc;
 use tokio::sync::watch;
@@ -181,7 +187,7 @@ async fn main() {
 		};
 	});
 
-	//TODO: handle graceful shutdowns
+	//TODO: handle graceful shut Serverdowns
 	#[allow(unused_must_use)]
 	{
 		signal_listener.await;
