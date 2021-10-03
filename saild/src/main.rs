@@ -1,3 +1,5 @@
+mod net;
+
 use confindent::Confindent;
 use getopts::Options;
 use sail::config::{Config, SailConfig};
@@ -153,7 +155,7 @@ async fn main() {
 	// architected for that
 	let dynconf = sail.config.clone();
 	let receive_task = tokio::spawn(sail.receive_messages(receiver, sender.clone()));
-	let listen_task = tokio::spawn(sail::net::listen(listener, sender, dynconf, rx));
+	let listen_task = tokio::spawn(crate::net::listen(listener, sender, dynconf, rx));
 	let signal_listener = tokio::spawn(async {
 		use tokio::signal::unix::{signal, SignalKind};
 		let mut a = (
