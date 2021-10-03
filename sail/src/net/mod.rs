@@ -1,17 +1,13 @@
-use std::{net::IpAddr, sync::Arc, time::Duration};
+use std::{net::IpAddr, time::Duration};
 
 use thiserror::Error;
 use tokio::{
-	io::{self, AsyncReadExt, AsyncWriteExt},
-	net::{TcpListener, TcpStream},
-	sync::{mpsc, watch},
+	io::{AsyncReadExt, AsyncWriteExt},
+	net::TcpStream,
 	time::{error::Elapsed, timeout},
 };
 
-use crate::{
-	config::Config,
-	smtp::{args::Domain, Client, ForeignMessage, Message, Server},
-};
+use crate::smtp::{args::Domain, Client, ForeignMessage, Message};
 
 use self::dns::DnsLookup;
 

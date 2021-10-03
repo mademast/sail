@@ -2,11 +2,7 @@ use std::fmt::Display;
 
 use crate::smtp::Response;
 
-use super::{
-	args::{ForeignPath, ForwardPath, Path, ReversePath},
-	Command::*,
-	ForeignMessage, Message, ResponseCode,
-};
+use super::{args::ForeignPath, Command::*, ForeignMessage, Message, ResponseCode};
 
 #[derive(Default, Clone)]
 pub struct Client {
