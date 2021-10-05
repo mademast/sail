@@ -2,22 +2,22 @@ use std::fmt::Display;
 
 use crate::smtp::Response;
 
-use super::{args::ForeignPath, Command::*, ForeignMessage, Message, ResponseCode};
+use super::{args::ForeignPath, Command::*, Envelope, ForeignEnvelope, ResponseCode};
 
 #[derive(Default, Clone)]
 pub struct Client {
 	state: State,
 	reply: String,
-	message: ForeignMessage,
+	Envelope: ForeignEnvelope,
 
 	last_sent_path: Option<ForeignPath>,
 	rejected_forward_paths: Vec<ForeignPath>,
 }
 
 impl Client {
-	pub fn initiate(message: ForeignMessage) -> Self {
+	pub fn initiate(Envelope: ForeignEnvelope) -> Self {
 		Self {
-			message,
+			Envelope,
 			..Default::default()
 		}
 	}
@@ -32,11 +32,11 @@ impl Client {
 		self.process_reply()
 	}
 
-	pub fn undeliverable(self) -> Option<Message> {
+	pub fn undeliverable(self) -> Option<Envelope> {
 		if !self.rejected_forward_paths.is_empty() {
-			if let Some(mut msg) = Into::<Message>::into(self.message).into_undeliverable("") {
+			if let Some(mut msg) = Into::<Envelope>::into(self.Envelope).into_undeliverable("") {
 				for path in self.rejected_forward_paths {
-					//todo: better messages. can we take the text part of the
+					//todo: better Envelopes. can we take the text part of the
 					//resposne and put it here?
 					msg.push(format!("The host rejected {}", path.0));
 				}
@@ -95,14 +95,14 @@ impl Client {
 			State::Greeted => match code {
 				ResponseCode::Okay => {
 					self.state = State::SentReversePath;
-					Output::Command(Mail(self.message.reverse_path.clone()))
+					Output::Command(Mail(self.Envelope.reverse_path.clone()))
 				}
 				_ => todo!(),
 			},
 			State::SentReversePath => match code {
 				ResponseCode::Okay => {
 					self.state = State::SendingForwardPaths;
-					Output::Command(Rcpt(self.message.forward_paths.pop()?.into()))
+					Output::Command(Rcpt(self.Envelope.forward_paths.pop()?.into()))
 				}
 				_ => todo!(),
 			},
@@ -111,7 +111,7 @@ impl Client {
 					self.invalid_forward();
 				}
 
-				if let Some(path) = self.message.forward_paths.pop() {
+				if let Some(path) = self.Envelope.forward_paths.pop() {
 					self.last_sent_path = Some(path.clone());
 					Output::Command(Rcpt(path.into()))
 				} else {
@@ -127,7 +127,7 @@ impl Client {
 				match code {
 					ResponseCode::StartMailInput => {
 						self.state = State::SentData;
-						Output::Data(self.message.data.clone())
+						Output::Data(self.Envelope.data.clone())
 					}
 					_ => todo!(),
 				}

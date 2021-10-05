@@ -6,24 +6,22 @@ use crate::config::Config;
 
 use super::{
 	args::{Domain, ForwardPath, ReversePath},
-	Command, Message, Response, ResponseCode,
+	Command, Envelope, Response, ResponseCode,
 };
 
 pub struct Server {
 	config: Box<dyn Config>,
-	message_sender: Sender<Message>,
 	state: State,
 	command: String,
-	message: Message,
+	message: Envelope,
 }
 
 impl Server {
-	pub fn initiate(message_sender: Sender<Message>, config: Box<dyn Config>) -> (Self, Response) {
+	pub fn initiate(config: Box<dyn Config>) -> (Self, Response) {
 		let primary_host = config.primary_host();
 		(
 			Self {
 				config,
-				message_sender,
 				state: Default::default(),
 				command: Default::default(),
 				message: Default::default(),
@@ -73,14 +71,9 @@ impl Server {
 	fn got_data(&mut self) -> Response {
 		//TODO: Fail here if the mail data fails verification as per RFC 5322
 
-		if self.message_sender.send(self.message.clone()).is_err() {
-			return Response::with_message("451".parse().unwrap(), "Internal threading error");
-		}
-
+		let response = self.config.message_received(self.message.clone());
 		self.rset();
-		self.state = State::Greeted;
-
-		Response::with_message(ResponseCode::Okay, "message accepted for delivery")
+		response
 	}
 
 	fn run_command(&mut self) -> Response {

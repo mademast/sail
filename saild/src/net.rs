@@ -1,27 +1,22 @@
 use std::sync::Arc;
 
-use sail::{
-	config::Config,
-	smtp::{Message, Server},
-};
+use sail::smtp::{Envelope, Server};
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
 	net::{TcpListener, TcpStream},
 	sync::{mpsc, watch},
 };
 
-use crate::sailconfig::SailConfig;
+use crate::sailconfig::ServerConfig;
 
 //runs as long as the user remains connected
 // handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
 async fn serve(
 	mut stream: TcpStream,
-	message_sender: mpsc::UnboundedSender<Message>,
-	config: Arc<SailConfig>,
+	config: Arc<ServerConfig>,
 	mut rx: watch::Receiver<bool>,
 ) -> io::Result<()> {
-	let (mut transaction, inital_response) =
-		Server::initiate(message_sender, Box::new(config.as_ref().clone()));
+	let (mut transaction, inital_response) = Server::initiate(Box::new(config.as_ref().clone()));
 	stream
 		.write_all(inital_response.as_string().as_bytes())
 		.await?;
@@ -57,8 +52,7 @@ async fn serve(
 //waits for new connections, dispatches new task to handle each new inbound connection
 pub async fn listen(
 	listener: TcpListener,
-	message_sender: mpsc::UnboundedSender<Message>,
-	config: Arc<SailConfig>,
+	config: Arc<ServerConfig>,
 	mut rx: watch::Receiver<bool>,
 ) {
 	loop {
@@ -69,11 +63,6 @@ pub async fn listen(
 
 		println!("connection from {}", clientaddr);
 
-		tokio::spawn(serve(
-			stream,
-			message_sender.clone(),
-			config.clone(),
-			rx.clone(),
-		));
+		tokio::spawn(serve(stream, config.clone(), rx.clone()));
 	}
 }

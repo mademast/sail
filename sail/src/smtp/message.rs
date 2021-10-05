@@ -1,15 +1,28 @@
 use super::args::{ForeignPath, ForwardPath, Path, ReversePath};
 
-#[derive(Default, Clone, Debug)]
 pub struct Message {
+	pub headers: Vec<(String, String)>,
+	pub body: String,
+}
+
+#[derive(Default, Clone, Debug)]
+pub struct Envelope {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForwardPath>,
 	pub data: String,
 }
 
-impl Message {
+impl Envelope {
+	pub fn new() -> Self {
+		Self {
+			reverse_path: ReversePath::Null,
+			forward_paths: vec![],
+			data: String::new(),
+		}
+	}
+
 	pub fn into_parts(self) -> (ReversePath, Vec<ForwardPath>, String) {
-		let Message {
+		let Envelope {
 			reverse_path,
 			forward_paths,
 			data,
@@ -61,13 +74,13 @@ impl Message {
 }
 
 #[derive(Debug, Clone)]
-pub struct ForeignMessage {
+pub struct ForeignEnvelope {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForeignPath>,
 	pub data: String,
 }
 
-impl ForeignMessage {
+impl ForeignEnvelope {
 	pub fn from_parts(
 		reverse_path: ReversePath,
 		forward_paths: Vec<ForeignPath>,
@@ -81,7 +94,7 @@ impl ForeignMessage {
 	}
 }
 
-impl Default for ForeignMessage {
+impl Default for ForeignEnvelope {
 	fn default() -> Self {
 		Self {
 			reverse_path: ReversePath::Null,
@@ -91,8 +104,8 @@ impl Default for ForeignMessage {
 	}
 }
 
-impl From<ForeignMessage> for Message {
-	fn from(other: ForeignMessage) -> Self {
+impl From<ForeignEnvelope> for Envelope {
+	fn from(other: ForeignEnvelope) -> Self {
 		Self {
 			reverse_path: other.reverse_path,
 			forward_paths: other

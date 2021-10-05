@@ -1,4 +1,7 @@
-use crate::smtp::args::{Domain, ForwardPath, LocalPart, Path};
+use crate::smtp::{
+	args::{Domain, ForwardPath, LocalPart, Path},
+	Envelope, Response,
+};
 
 pub trait Config: Send + Sync {
 	/// Check if a forward path should be relayed or delivered locally
@@ -11,4 +14,10 @@ pub trait Config: Send + Sync {
 	/// This is used during the RCPT command on the server to determine if it
 	/// should accept a forward path or not, whether it's for relay or local delivery.
 	fn path_is_valid(&self, path: &Path) -> bool;
+
+	//TODO: rewrite this
+	/// Called when the server receives a message.
+	/// If the message is accepted, this function should return a Response with the code 250.
+	/// If the messahe is rejected, the Response should have a code indicating a negative state.
+	fn message_received(&mut self, message: Envelope) -> Response;
 }

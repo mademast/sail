@@ -7,7 +7,7 @@ use tokio::{
 	time::{error::Elapsed, timeout},
 };
 
-use crate::smtp::{args::Domain, Client, ForeignMessage, Message};
+use crate::smtp::{args::Domain, Client, Envelope, ForeignEnvelope};
 
 use self::dns::DnsLookup;
 
@@ -15,21 +15,21 @@ pub mod dns;
 
 pub async fn relay(
 	domain: Domain,
-	message: ForeignMessage,
+	message: ForeignEnvelope,
 	// rx: watch::Receiver<bool>,
-) -> Option<Message> {
+) -> Option<Envelope> {
 	match run(domain, message.clone() /*, rx*/).await {
 		Ok(_) => None,
 		Err(err) => match err {
 			RelayError::UndeliverableMail(message) => message,
-			_ => Into::<Message>::into(message).into_undeliverable(err.to_string()), //FIXME: this is incomprehensible. how do left swimming turbofish work
+			_ => Into::<Envelope>::into(message).into_undeliverable(err.to_string()), //FIXME: this is incomprehensible. how do left swimming turbofish work
 		},
 	}
 }
 
 async fn run(
 	domain: Domain,
-	message: ForeignMessage,
+	message: ForeignEnvelope,
 	// rx: watch::Receiver<bool>,
 ) -> Result<(), RelayError> {
 	for path in &message.forward_paths {
@@ -53,7 +53,7 @@ async fn run(
 
 async fn send_to_ip(
 	addr: IpAddr,
-	message: ForeignMessage,
+	message: ForeignEnvelope,
 	// mut rx: watch::Receiver<bool>,
 ) -> Result<(), RelayError> {
 	println!("{}:{}", addr, 25);
@@ -117,5 +117,5 @@ pub enum RelayError {
 	#[error("there was an error connecting to the host")]
 	ConnectionError(#[from] std::io::Error),
 	#[error("Undeliverable mail")]
-	UndeliverableMail(Option<Message>),
+	UndeliverableMail(Option<Envelope>),
 }
