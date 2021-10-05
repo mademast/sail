@@ -193,9 +193,7 @@ impl Server {
 	}
 
 	fn rset(&mut self) -> Response {
-		self.message.data.clear();
-		self.message.reverse_path = Default::default();
-		self.message.forward_paths.clear();
+		self.message = Envelope::default();
 
 		self.state = match self.state {
 			State::Initiated => State::Initiated,

@@ -1,8 +1,12 @@
-use std::fmt::Display;
+use std::{fmt::Display, time::SystemTime};
 
 use crate::smtp::Response;
 
-use super::{args::ForeignPath, Command::*, Envelope, ForeignEnvelope, ResponseCode};
+use super::{
+	args::{Domain, ForeignPath, ReversePath},
+	Command::*,
+	Envelope, ForeignEnvelope, Message, ResponseCode,
+};
 
 #[derive(Default, Clone)]
 pub struct Client {
@@ -32,16 +36,18 @@ impl Client {
 		self.process_reply()
 	}
 
-	pub fn undeliverable(self) -> Option<Envelope> {
+	pub fn undeliverable(self) -> Option<Message> {
 		if !self.rejected_forward_paths.is_empty() {
-			if let Some(mut msg) = Into::<Envelope>::into(self.Envelope).into_undeliverable("") {
+			if let super::args::ReversePath::Regular(_) = self.Envelope.reverse_path {
+				let mut reason = String::new();
+
 				for path in self.rejected_forward_paths {
 					//todo: better Envelopes. can we take the text part of the
 					//resposne and put it here?
-					msg.push(format!("The host rejected {}", path.0));
+					reason.push_str(&format!("The host rejected {}\r\n", path.0));
 				}
 
-				Some(msg)
+				Some(Message::new(SystemTime::now(), ReversePath::Null, reason))
 			} else {
 				None
 			}
@@ -127,7 +133,7 @@ impl Client {
 				match code {
 					ResponseCode::StartMailInput => {
 						self.state = State::SentData;
-						Output::Data(self.Envelope.data.clone())
+						Output::Data(self.Envelope.data.to_string())
 					}
 					_ => todo!(),
 				}

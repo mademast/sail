@@ -12,6 +12,7 @@ pub use response::{Response, ResponseCode};
 pub use server::Server;
 
 mod test {
+	use std::time::SystemTime;
 
 	#[test]
 	#[ignore] //only run in CI contexts
@@ -22,7 +23,7 @@ mod test {
 		use super::{
 			super::net,
 			args::{Domain, ForeignPath, Path, ReversePath},
-			Envelope, ForeignEnvelope,
+			Envelope, ForeignEnvelope, Message,
 		};
 		let path = Path::from_str(&format!("<{}>", var("TRIGGER_EMAIL").unwrap())).unwrap();
 		let forward_paths = vec![ForeignPath(path.clone())];
@@ -31,8 +32,8 @@ mod test {
 
 		let message = ForeignEnvelope {
 			forward_paths,
-			reverse_path,
-			data,
+			reverse_path: reverse_path.clone(),
+			data: Message::new(SystemTime::now(), reverse_path, data),
 		};
 		// let (_, rx) = tokio::sync::watch::channel(false);
 		let future = net::relay(

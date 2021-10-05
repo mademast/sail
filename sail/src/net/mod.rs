@@ -1,4 +1,4 @@
-use std::{net::IpAddr, time::Duration};
+use std::{convert::TryInto, net::IpAddr, time::Duration};
 
 use thiserror::Error;
 use tokio::{
@@ -7,7 +7,10 @@ use tokio::{
 	time::{error::Elapsed, timeout},
 };
 
-use crate::smtp::{args::Domain, Client, Envelope, ForeignEnvelope};
+use crate::smtp::{
+	args::{Domain, ReversePath},
+	Client, Envelope, ForeignEnvelope, Message,
+};
 
 use self::dns::DnsLookup;
 
@@ -18,12 +21,10 @@ pub async fn relay(
 	message: ForeignEnvelope,
 	// rx: watch::Receiver<bool>,
 ) -> Option<Envelope> {
-	match run(domain, message.clone() /*, rx*/).await {
+	let sender = message.reverse_path.clone();
+	match run(domain, message /*, rx*/).await {
 		Ok(_) => None,
-		Err(err) => match err {
-			RelayError::UndeliverableMail(message) => message,
-			_ => Into::<Envelope>::into(message).into_undeliverable(err.to_string()), //FIXME: this is incomprehensible. how do left swimming turbofish work
-		},
+		Err(err) => None,
 	}
 }
 
@@ -117,5 +118,5 @@ pub enum RelayError {
 	#[error("there was an error connecting to the host")]
 	ConnectionError(#[from] std::io::Error),
 	#[error("Undeliverable mail")]
-	UndeliverableMail(Option<Envelope>),
+	UndeliverableMail(Option<Message>),
 }

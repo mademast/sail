@@ -1,27 +1,124 @@
-use super::args::{ForeignPath, ForwardPath, Path, ReversePath};
+use core::fmt;
+use std::{
+	borrow::Borrow,
+	str::FromStr,
+	time::{Instant, SystemTime},
+};
 
+use chrono::{DateTime, Local};
+use thiserror::Error;
+
+use crate::smtp::args::LocalPart;
+
+use super::args::{Domain, ForeignPath, ForwardPath, Path, ReversePath};
+
+#[derive(Clone, Debug, Default)]
 pub struct Message {
 	pub headers: Vec<(String, String)>,
 	pub body: String,
+}
+
+impl Message {
+	pub fn new<T: Into<DateTime<Local>>>(date: T, sender: ReversePath, body: String) -> Self {
+		let mut headers = vec![];
+		headers.push((String::from("From"), sender.to_string()));
+		headers.push((String::from("Date"), date.into().to_rfc2822()));
+
+		//TODO: break the body at 80
+		Self { headers, body }
+	}
+
+	pub fn empty() -> Self {
+		Message {
+			headers: vec![],
+			body: String::new(),
+		}
+	}
+}
+
+impl FromStr for Message {
+	type Err = ParseMessageError;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		let mut lines = s.lines();
+
+		let mut ret = Message::empty();
+
+		// Just findin' the headers
+		loop {
+			let line = if let Some(line) = lines.next() {
+				line
+			} else {
+				break;
+			};
+
+			if line.is_empty() {
+				// Empty line indicates the beginning of the body, we're done looking for headers
+				break;
+			}
+
+			//TODO: Not unwrap, that's for sure
+			if line.starts_with(|c| c == ' ' || c == '\t') {
+				// This is a folded line, unfold
+				if let Some((_, body)) = ret.headers.last_mut() {
+					body.push(' ');
+					body.push_str(line.trim_start());
+				} else {
+					return Err(ParseMessageError::MalformedHeaders);
+				}
+			}
+
+			match line.split_once(':') {
+				None => return Err(ParseMessageError::MalformedHeaders),
+				Some((field, body)) => ret.headers.push((field.to_owned(), body.to_owned())),
+			}
+		}
+
+		ret.body = lines.collect::<Vec<&str>>().join("\r\n");
+
+		Ok(ret)
+	}
+}
+
+impl fmt::Display for Message {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		//TOOD: Conform to the RFC and max line length 80 col
+
+		for (field, body) in &self.headers {
+			write!(f, "{}:{}", field, body)?;
+		}
+
+		write!(f, "{}", self.body)
+	}
+}
+
+#[derive(Clone, Copy, Debug, Error)]
+pub enum ParseMessageError {
+	#[error("The messages headers were malformed")]
+	MalformedHeaders,
 }
 
 #[derive(Default, Clone, Debug)]
 pub struct Envelope {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForwardPath>,
-	pub data: String,
+	pub data: Message,
 }
 
 impl Envelope {
-	pub fn new() -> Self {
+	pub fn new(reverse: ReversePath) -> Self {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![],
-			data: String::new(),
+			data: Message::empty(),
 		}
 	}
 
-	pub fn into_parts(self) -> (ReversePath, Vec<ForwardPath>, String) {
+	pub fn add_recipient(&mut self, forward_path: ForwardPath) {
+		self.forward_paths.push(forward_path)
+	}
+
+	pub fn into_parts(self) -> (ReversePath, Vec<ForwardPath>, Message) {
 		let Envelope {
 			reverse_path,
 			forward_paths,
@@ -30,23 +127,37 @@ impl Envelope {
 		(reverse_path, forward_paths, data)
 	}
 
-	pub fn into_undeliverable<S: Into<String>>(self, reason: S) -> Option<Self> {
+	/*pub fn into_undeliverable<S: Into<String>>(
+		self,
+		primary_host: Domain,
+		reason: S,
+	) -> Option<Self> {
 		match self.reverse_path {
 			ReversePath::Null => None,
-			ReversePath::Regular(reverse) => Some(Self::undeliverable(reason.into(), reverse)),
+			ReversePath::Regular(reverse) => {
+				Some(Self::undeliverable(primary_host, reverse, reason.into()))
+			}
 		}
 	}
 
-	pub fn undeliverable<S: Into<String>>(reason: S, reverse_path: Path) -> Self {
+	pub fn undeliverable<S: Into<String>>(
+		primary_host: Domain,
+		reverse_path: Path,
+		reason: S,
+	) -> Self {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![ForwardPath::Regular(reverse_path)],
-			data: reason.into(), //TODO: Genny: pls make this properly formatted with headers and such, i beg of you
+			data: Message::new(
+				SystemTime::now(),
+				ReversePath::Regular(format!("postmaster@{}", primary_host).parse().unwrap()),
+				reason.into(),
+			),
 		}
-	}
+	}*/
 
 	pub fn push<S: AsRef<str>>(&mut self, line: S) {
-		self.data.push_str(line.as_ref());
+		self.data.body.push_str(line.as_ref());
 	}
 
 	/// Take in a String and remove leading periods from lines. This function
@@ -77,14 +188,14 @@ impl Envelope {
 pub struct ForeignEnvelope {
 	pub reverse_path: ReversePath,
 	pub forward_paths: Vec<ForeignPath>,
-	pub data: String,
+	pub data: Message,
 }
 
 impl ForeignEnvelope {
 	pub fn from_parts(
 		reverse_path: ReversePath,
 		forward_paths: Vec<ForeignPath>,
-		data: String,
+		data: Message,
 	) -> Self {
 		Self {
 			reverse_path,
@@ -99,7 +210,7 @@ impl Default for ForeignEnvelope {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![],
-			data: String::new(),
+			data: Message::default(),
 		}
 	}
 }

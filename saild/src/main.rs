@@ -5,20 +5,9 @@ mod sailconfig;
 use binconfig::BinConfig;
 use sailconfig::ServerConfig;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
-use sail::{
-	config::Config,
-	smtp::{
-		args::{Domain, ForeignPath, ForwardPath},
-		Envelope, ForeignEnvelope,
-	},
-};
-
 use tokio::net::TcpListener;
-use tokio::sync::mpsc;
-use tokio::sync::watch;
 
 struct Sail {}
 
@@ -46,14 +35,6 @@ async fn main() {
 	};
 
 	let (tx, rx) = tokio::sync::watch::channel(false);
-
-	let sail = Sail {
-		/*config: Arc::new(config),
-		sender: sender.clone(),
-		local_messages: vec![],
-		foreign_messages: vec![],
-		rx: rx.clone(),*/
-	};
 
 	// make the arc before we move sail into receive_messages. Ideally we'd do
 	// something else so we can update the config later, but we are currently not

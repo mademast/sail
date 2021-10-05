@@ -3,6 +3,7 @@ use super::{
 	Domain, ParseDomainError,
 };
 use std::{
+	convert::TryFrom,
 	fmt::{Display, Formatter},
 	str::FromStr,
 };
@@ -12,6 +13,15 @@ use thiserror::Error;
 pub struct Path {
 	pub local_part: LocalPart,
 	pub domain: Domain,
+}
+
+impl Path {
+	pub fn new(local: LocalPart, domain: Domain) -> Self {
+		Self {
+			local_part: local,
+			domain,
+		}
+	}
 }
 
 #[derive(Clone, Debug)]
@@ -54,6 +64,7 @@ impl Display for ForwardPath {
 		}
 	}
 }
+
 impl Display for ReversePath {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
@@ -62,6 +73,24 @@ impl Display for ReversePath {
 		}
 	}
 }
+
+impl TryFrom<ReversePath> for ForwardPath {
+	type Error = PathConversionError;
+
+	fn try_from(value: ReversePath) -> Result<Self, Self::Error> {
+		if let ReversePath::Regular(p) = value {
+			Ok(ForwardPath::Regular(p))
+		} else {
+			Err(PathConversionError::ReversePathWasNull)
+		}
+	}
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum PathConversionError {
+	ReversePathWasNull,
+}
+
 impl FromStr for Path {
 	type Err = ParsePathError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
