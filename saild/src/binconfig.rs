@@ -1,4 +1,7 @@
-use std::net::{IpAddr, SocketAddr};
+use std::{
+	net::{IpAddr, SocketAddr},
+	path::PathBuf,
+};
 
 use confindent::Confindent;
 use getopts::Options;
@@ -6,6 +9,7 @@ use getopts::Options;
 pub struct BinConfig {
 	pub address: IpAddr,
 	pub port: u16,
+	pub maildir: PathBuf,
 }
 
 #[allow(clippy::or_fun_call)]
@@ -108,6 +112,15 @@ impl BinConfig {
 			}
 		};
 
-		Some(Self { address, port })
+		let maildir = config
+			.child_value("Maildir")
+			.map(|s| PathBuf::from(s))
+			.unwrap();
+
+		Some(Self {
+			address,
+			port,
+			maildir,
+		})
 	}
 }

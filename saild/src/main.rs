@@ -1,4 +1,5 @@
 mod binconfig;
+pub mod fs;
 mod net;
 mod sailconfig;
 
@@ -23,11 +24,13 @@ async fn main() {
 			hostnames: vec!["localhost".parse().unwrap()],
 			relays: vec!["nove.dev".parse().unwrap(), "genbyte.dev".parse().unwrap()],
 			users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
+			maildir: binconf.maildir,
 		},
 		_ => ServerConfig {
 			hostnames: vec!["localhost.localdomain".parse().unwrap()],
 			users: vec!["alice".parse().unwrap(), "bob".parse().unwrap()],
 			relays: vec!["localhost".parse().unwrap()],
+			maildir: binconf.maildir,
 		},
 	};
 

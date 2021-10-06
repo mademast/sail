@@ -1,4 +1,6 @@
-use std::collections::HashMap;
+use crate::fs::Maildir;
+
+use std::{collections::HashMap, path::PathBuf};
 
 use sail::{
 	config::Config,
@@ -14,6 +16,7 @@ pub struct ServerConfig {
 	pub hostnames: Vec<Domain>,
 	pub relays: Vec<Domain>,
 	pub users: Vec<LocalPart>,
+	pub maildir: PathBuf,
 }
 
 impl ServerConfig {
@@ -91,6 +94,9 @@ impl Config for ServerConfig {
 				content
 			);
 		}
+		let md = Maildir::new(&self.maildir);
+		md.create_directories().unwrap();
+		md.save(content.clone()).unwrap();
 
 		// # Relaying Onwards
 		// First, check if the server this would relay to is in our list that we're allowed to

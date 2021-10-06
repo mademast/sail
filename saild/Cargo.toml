@@ -9,6 +9,8 @@ edition = "2018"
 
 [dependencies]
 sail = { path = "../sail" }
+gethostname = "0.2.1"
+rand = "0.8.4"
 tokio = { version = "1", features = ["full"] }
 getopts = "0.2.21"
 confindent = "2.0.1"
