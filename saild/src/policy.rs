@@ -3,7 +3,7 @@ use crate::fs::Maildir;
 use std::{collections::HashMap, path::PathBuf};
 
 use sail::{
-	config::Config,
+	policy::Policy,
 	smtp::{
 		args::{Domain, ForeignPath, ForwardPath, LocalPart, Path},
 		Envelope, ForeignEnvelope, Message, Response, ResponseCode,
@@ -11,7 +11,7 @@ use sail::{
 };
 
 #[derive(Clone)]
-pub struct ServerConfig {
+pub struct ServerPolicy {
 	//TODO: Properly load a config and don't have this be public!
 	pub hostnames: Vec<Domain>,
 	pub relays: Vec<Domain>,
@@ -19,7 +19,7 @@ pub struct ServerConfig {
 	pub maildir: PathBuf,
 }
 
-impl ServerConfig {
+impl ServerPolicy {
 	fn path_is_local(&self, path: &Path) -> bool {
 		self.hostnames.contains(&path.domain)
 	}
@@ -34,7 +34,7 @@ impl ServerConfig {
 	}
 }
 
-impl Config for ServerConfig {
+impl Policy for ServerPolicy {
 	fn forward_path_is_local(&self, forward: &ForwardPath) -> bool {
 		match forward {
 			ForwardPath::Postmaster => true,

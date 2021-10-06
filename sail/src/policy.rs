@@ -3,7 +3,7 @@ use crate::smtp::{
 	Envelope, Response,
 };
 
-pub trait Config: Send + Sync {
+pub trait Policy: Send + Sync {
 	/// Check if a forward path should be relayed or delivered locally
 	fn forward_path_is_local(&self, forward: &ForwardPath) -> bool;
 

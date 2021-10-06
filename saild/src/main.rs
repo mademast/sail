@@ -1,10 +1,10 @@
 mod binconfig;
 pub mod fs;
 mod net;
-mod sailconfig;
+mod policy;
 
 use binconfig::BinConfig;
-use sailconfig::ServerConfig;
+use policy::ServerPolicy;
 
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -20,13 +20,13 @@ async fn main() {
 
 	// Quick, bad config based on port for testing
 	let config = match binconf.port {
-		25 => ServerConfig {
+		25 => ServerPolicy {
 			hostnames: vec!["localhost".parse().unwrap()],
 			relays: vec!["nove.dev".parse().unwrap(), "genbyte.dev".parse().unwrap()],
 			users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
 			maildir: binconf.maildir,
 		},
-		_ => ServerConfig {
+		_ => ServerPolicy {
 			hostnames: vec!["localhost.localdomain".parse().unwrap()],
 			users: vec!["alice".parse().unwrap(), "bob".parse().unwrap()],
 			relays: vec!["localhost".parse().unwrap()],

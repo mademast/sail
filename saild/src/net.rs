@@ -7,13 +7,13 @@ use tokio::{
 	sync::watch,
 };
 
-use crate::sailconfig::ServerConfig;
+use crate::policy::ServerPolicy;
 
 //runs as long as the user remains connected
 // handles low-level tcp read and write nonsense, passes strings back and forth with the business logic in transaction.
 async fn serve(
 	mut stream: TcpStream,
-	config: Arc<ServerConfig>,
+	config: Arc<ServerPolicy>,
 	mut rx: watch::Receiver<bool>,
 ) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(Box::new(config.as_ref().clone()));
@@ -53,7 +53,7 @@ async fn serve(
 //waits for new connections, dispatches new task to handle each new inbound connection
 pub async fn listen(
 	listener: TcpListener,
-	config: Arc<ServerConfig>,
+	config: Arc<ServerPolicy>,
 	mut rx: watch::Receiver<bool>,
 ) {
 	loop {

@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::policy::Policy;
 
 use super::{
 	args::{Domain, ForwardPath, ReversePath},
@@ -6,18 +6,18 @@ use super::{
 };
 
 pub struct Server {
-	config: Box<dyn Config>,
+	policy: Box<dyn Policy>,
 	state: State,
 	command: String,
 	message: Envelope,
 }
 
 impl Server {
-	pub fn initiate(config: Box<dyn Config>) -> (Self, Response) {
-		let primary_host = config.primary_host();
+	pub fn initiate(policy: Box<dyn Policy>) -> (Self, Response) {
+		let primary_host = policy.primary_host();
 		(
 			Self {
-				config,
+				policy,
 				state: Default::default(),
 				command: Default::default(),
 				message: Default::default(),
@@ -67,7 +67,7 @@ impl Server {
 	fn got_data(&mut self) -> Response {
 		//TODO: Fail here if the mail data fails verification as per RFC 5322
 
-		let response = self.config.message_received(self.message.clone());
+		let response = self.policy.message_received(self.message.clone());
 		self.rset();
 		response
 	}
@@ -114,7 +114,7 @@ impl Server {
 					ResponseCode::Okay,
 					format!(
 						"{} (sail) greets {}",
-						self.config.primary_host(),
+						self.policy.primary_host(),
 						client_domain
 					),
 				)
@@ -136,7 +136,7 @@ impl Server {
 			ResponseCode::Okay,
 			format!(
 				"{} (sail) greets {}",
-				self.config.primary_host(),
+				self.policy.primary_host(),
 				client_domain
 			),
 		);
@@ -169,7 +169,7 @@ impl Server {
 			match forward_path {
 				ForwardPath::Postmaster => self.add_rcpt(forward_path),
 				ForwardPath::Regular(path) => {
-					if self.config.path_is_valid(path) {
+					if self.policy.path_is_valid(path) {
 						self.add_rcpt(forward_path)
 					} else {
 						Self::bad_command() //todo: correct responses
@@ -204,7 +204,7 @@ impl Server {
 
 		Response::with_message(
 			ResponseCode::ServiceClosing,
-			&format!("{} Goodbye", self.config.primary_host()),
+			&format!("{} Goodbye", self.policy.primary_host()),
 		)
 	}
 
