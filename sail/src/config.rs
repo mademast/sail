@@ -1,5 +1,5 @@
 use crate::smtp::{
-	args::{Domain, ForwardPath, LocalPart, Path},
+	args::{Domain, ForwardPath, Path},
 	Envelope, Response,
 };
 
@@ -18,6 +18,6 @@ pub trait Config: Send + Sync {
 	//TODO: rewrite this
 	/// Called when the server receives a message.
 	/// If the message is accepted, this function should return a Response with the code 250.
-	/// If the messahe is rejected, the Response should have a code indicating a negative state.
+	/// If the message is rejected, the Response should have a code indicating a negative state.
 	fn message_received(&mut self, message: Envelope) -> Response;
 }

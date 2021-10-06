@@ -78,6 +78,7 @@ impl std::str::FromStr for Command {
 	}
 }
 
+#[allow(clippy::enum_variant_names)]
 #[derive(Error, Debug)]
 pub enum ParseCommandError {
 	#[error("unknown command")]

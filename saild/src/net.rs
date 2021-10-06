@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use sail::smtp::{Envelope, Server};
+use sail::smtp::Server;
 use tokio::{
 	io::{self, AsyncReadExt, AsyncWriteExt},
 	net::{TcpListener, TcpStream},
-	sync::{mpsc, watch},
+	sync::watch,
 };
 
 use crate::sailconfig::ServerConfig;
@@ -24,6 +24,7 @@ async fn serve(
 	let mut buf = vec![0; 1024];
 
 	while !transaction.should_exit() {
+		#[allow(unused_must_use)]
 		let read = tokio::select! {
 			Ok(read) = stream.read(&mut buf) => read,
 			_ = rx.changed() => {

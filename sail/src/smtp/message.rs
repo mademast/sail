@@ -1,16 +1,10 @@
 use core::fmt;
-use std::{
-	borrow::Borrow,
-	str::FromStr,
-	time::{Instant, SystemTime},
-};
+use std::str::FromStr;
 
 use chrono::{DateTime, Local};
 use thiserror::Error;
 
-use crate::smtp::args::LocalPart;
-
-use super::args::{Domain, ForeignPath, ForwardPath, Path, ReversePath};
+use super::args::{ForeignPath, ForwardPath, ReversePath};
 
 #[derive(Clone, Debug, Default)]
 pub struct Message {
@@ -20,9 +14,10 @@ pub struct Message {
 
 impl Message {
 	pub fn new<T: Into<DateTime<Local>>>(date: T, sender: ReversePath, body: String) -> Self {
-		let mut headers = vec![];
-		headers.push((String::from("From"), sender.to_string()));
-		headers.push((String::from("Date"), date.into().to_rfc2822()));
+		let headers = vec![
+			(String::from("From"), sender.to_string()),
+			(String::from("Date"), date.into().to_rfc2822()),
+		];
 
 		//TODO: break the body at 80
 		Self { headers, body }
@@ -45,13 +40,7 @@ impl FromStr for Message {
 		let mut ret = Message::empty();
 
 		// Just findin' the headers
-		loop {
-			let line = if let Some(line) = lines.next() {
-				line
-			} else {
-				break;
-			};
-
+		for line in &mut lines {
 			if line.is_empty() {
 				// Empty line indicates the beginning of the body, we're done looking for headers
 				break;
@@ -106,7 +95,7 @@ pub struct Envelope {
 }
 
 impl Envelope {
-	pub fn new(reverse: ReversePath) -> Self {
+	pub fn new(_reverse: ReversePath) -> Self {
 		Self {
 			reverse_path: ReversePath::Null,
 			forward_paths: vec![],

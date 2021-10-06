@@ -1,4 +1,4 @@
-use std::{convert::TryInto, net::IpAddr, time::Duration};
+use std::{net::IpAddr, time::Duration};
 
 use thiserror::Error;
 use tokio::{
@@ -7,10 +7,7 @@ use tokio::{
 	time::{error::Elapsed, timeout},
 };
 
-use crate::smtp::{
-	args::{Domain, ReversePath},
-	Client, Envelope, ForeignEnvelope, Message,
-};
+use crate::smtp::{args::Domain, Client, Envelope, ForeignEnvelope, Message};
 
 use self::dns::DnsLookup;
 
@@ -21,10 +18,10 @@ pub async fn relay(
 	message: ForeignEnvelope,
 	// rx: watch::Receiver<bool>,
 ) -> Option<Envelope> {
-	let sender = message.reverse_path.clone();
+	let _sender = message.reverse_path.clone();
 	match run(domain, message /*, rx*/).await {
 		Ok(_) => None,
-		Err(err) => None,
+		Err(_err) => None,
 	}
 }
 

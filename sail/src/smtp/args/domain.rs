@@ -31,8 +31,8 @@ impl std::str::FromStr for Domain {
 	type Err = ParseDomainError;
 
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		if let Some(literal) = s.strip_prefix("[") {
-			if let Some(stripped) = literal.strip_suffix("]") {
+		if let Some(literal) = s.strip_prefix('[') {
+			if let Some(stripped) = literal.strip_suffix(']') {
 				if let Some(ipv6_literal) = stripped.strip_prefix("IPv6:") {
 					// Only parse ipv6 if it claims to be one
 					Ok(Self::Literal(IpAddr::V6(ipv6_literal.parse()?)))

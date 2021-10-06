@@ -3,7 +3,7 @@
 # 2: An Overview
 - Lines end CRLF
 - The message format is the header block and then, optionally, the body
-- A line MUST not be more than 1000 characters total long and SHOULD NOT be more than  80 (lest it "disastrously wrap")
+- A line MUST not be more than 1000 characters total long and SHOULD NOT be more than 80 (lest it "disastrously wrap")
 
 ## Header Fields
 - In the format `<field name>:<field body>`.
@@ -36,7 +36,7 @@
 From 5234
 ```abnf
 SP    = %x20      ; A space character
-HTAB  = %x09      ; A tab charactre
+HTAB  = %x09      ; A tab character
 WSP   = SP / HTAB ; White space
 VCHAR = %x21-7E   ; Visibile, printable, ASCII
 ```

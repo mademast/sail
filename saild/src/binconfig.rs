@@ -76,6 +76,7 @@ impl BinConfig {
 				.split('-')
 				.map(|word| {
 					// https://stackoverflow.com/a/38406885
+					// wow, is this really the best way to Title Case something? omg
 					let mut c = word.chars();
 					match c.next() {
 						None => String::new(),

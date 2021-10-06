@@ -9,7 +9,7 @@ use trust_dns_resolver::{
 
 pub struct DnsLookup {
 	/// A Vec containing possible mail server names. It is sorted in reverse
-	/// order of preference. The least prefered servers are at the front of the
+	/// order of preference. The least preferred servers are at the front of the
 	/// Vec. This lets you use Vec::pop to get the next preferred server.
 	mx_records: Vec<String>,
 	/// A Vec containing possible IP addresses of the last popped domain.
@@ -35,7 +35,7 @@ impl DnsLookup {
 					ip_addresses: vec![],
 				})
 			}
-			
+
 			Err(err) => match err.kind() {
 				ResolveErrorKind::NoRecordsFound { .. } => Ok(Self {
 					mx_records: vec![],

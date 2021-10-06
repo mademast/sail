@@ -12,7 +12,6 @@ pub use response::{Response, ResponseCode};
 pub use server::Server;
 
 mod test {
-	use std::time::SystemTime;
 
 	#[test]
 	#[ignore] //only run in CI contexts
@@ -33,7 +32,7 @@ mod test {
 		let message = ForeignEnvelope {
 			forward_paths,
 			reverse_path: reverse_path.clone(),
-			data: Message::new(SystemTime::now(), reverse_path, data),
+			data: Message::new(std::time::SystemTime::now(), reverse_path, data),
 		};
 		// let (_, rx) = tokio::sync::watch::channel(false);
 		let future = net::relay(

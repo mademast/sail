@@ -31,8 +31,8 @@ impl Validator {
 	}
 
 	pub fn validate_path(path: &str) -> bool {
-		if let Some(path) = path.strip_prefix("<") {
-			if let Some(stripped) = path.strip_suffix(">") {
+		if let Some(path) = path.strip_prefix('<') {
+			if let Some(stripped) = path.strip_suffix('>') {
 				if !stripped.starts_with('@') {
 					// ADLs have to start with @
 					return Self::validate_mailbox(stripped);

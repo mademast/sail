@@ -6,10 +6,7 @@ use binconfig::BinConfig;
 use sailconfig::ServerConfig;
 
 use std::sync::Arc;
-
 use tokio::net::TcpListener;
-
-struct Sail {}
 
 #[tokio::main]
 async fn main() {
