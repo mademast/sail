@@ -95,9 +95,9 @@ pub struct Envelope {
 }
 
 impl Envelope {
-	pub fn new(_reverse: ReversePath) -> Self {
+	pub fn new(reverse: ReversePath) -> Self {
 		Self {
-			reverse_path: ReversePath::Null,
+			reverse_path: reverse,
 			forward_paths: vec![],
 			data: Message::empty(),
 		}

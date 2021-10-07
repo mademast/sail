@@ -29,7 +29,7 @@ impl Maildir {
 		cur.push("cur");
 
 		if !self.maildir.exists() {
-			std::fs::create_dir(&self.maildir)?;
+			std::fs::create_dir_all(&self.maildir)?;
 			std::fs::create_dir(tmp)?;
 			std::fs::create_dir(new)?;
 			std::fs::create_dir(cur)

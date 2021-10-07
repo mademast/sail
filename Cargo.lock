@@ -616,6 +616,7 @@ dependencies = [
  "getopts",
  "rand",
  "sail",
+ "thiserror",
  "tokio",
 ]
 

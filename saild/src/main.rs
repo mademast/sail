@@ -1,9 +1,9 @@
-mod binconfig;
+mod config;
 pub mod fs;
 mod net;
 mod policy;
 
-use binconfig::BinConfig;
+use config::Config;
 use policy::ServerPolicy;
 
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use tokio::net::TcpListener;
 
 #[tokio::main]
 async fn main() {
-	let binconf = match BinConfig::get() {
+	let binconf = match Config::get() {
 		Some(conf) => conf,
 		None => return,
 	};

@@ -1,4 +1,4 @@
-use crate::fs::Maildir;
+use crate::{config::MaildirTemplate, fs::Maildir};
 
 use std::{collections::HashMap, path::PathBuf};
 
@@ -16,7 +16,7 @@ pub struct ServerPolicy {
 	pub hostnames: Vec<Domain>,
 	pub relays: Vec<Domain>,
 	pub users: Vec<LocalPart>,
-	pub maildir: PathBuf,
+	pub maildir: MaildirTemplate,
 }
 
 impl ServerPolicy {
@@ -87,16 +87,10 @@ impl Policy for ServerPolicy {
 		// as we have nowhere to save it! If it succeeds, tell the server as such (return 250).
 		//TODO: Save the local bits to disk
 		for local in locals {
-			println!(
-				"From: {}\nFor:{}\n\n{}",
-				reverse.to_string(),
-				local.to_string(),
-				content
-			);
+			let md = Maildir::new(self.maildir.as_path(&local));
+			md.create_directories().unwrap();
+			md.save(content.clone()).unwrap();
 		}
-		let md = Maildir::new(&self.maildir);
-		md.create_directories().unwrap();
-		md.save(content.clone()).unwrap();
 
 		// # Relaying Onwards
 		// First, check if the server this would relay to is in our list that we're allowed to
