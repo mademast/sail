@@ -1,8 +1,8 @@
 use core::fmt;
 use std::str::FromStr;
 
-use chrono::{DateTime, Local};
 use thiserror::Error;
+use time::{format_description::well_known::Rfc2822, OffsetDateTime};
 
 use super::args::{ForeignPath, ForwardPath, ReversePath};
 
@@ -13,14 +13,22 @@ pub struct Message {
 }
 
 impl Message {
-	pub fn new<T: Into<DateTime<Local>>>(date: T, sender: ReversePath, body: String) -> Self {
+	pub fn new(date: OffsetDateTime, sender: ReversePath, body: String) -> Self {
 		let headers = vec![
 			(String::from("From"), sender.to_string()),
-			(String::from("Date"), date.into().to_rfc2822()),
+			(String::from("Date"), date.format(&Rfc2822).unwrap()),
 		];
 
 		//TODO: break the body at 80
 		Self { headers, body }
+	}
+
+	pub fn new_now(sender: ReversePath, body: String) -> Self {
+		Self::new(
+			OffsetDateTime::now_local().unwrap_or(OffsetDateTime::now_utc()),
+			sender,
+			body,
+		)
 	}
 
 	pub fn empty() -> Self {

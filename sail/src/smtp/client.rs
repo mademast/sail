@@ -47,7 +47,7 @@ impl Client {
 					reason.push_str(&format!("The host rejected {}\r\n", path.0));
 				}
 
-				Some(Message::new(SystemTime::now(), ReversePath::Null, reason))
+				Some(Message::new_now(ReversePath::Null, reason))
 			} else {
 				None
 			}

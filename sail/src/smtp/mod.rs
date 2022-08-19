@@ -32,7 +32,7 @@ mod test {
 		let message = ForeignEnvelope {
 			forward_paths,
 			reverse_path: reverse_path.clone(),
-			data: Message::new(std::time::SystemTime::now(), reverse_path, data),
+			data: Message::new_now(reverse_path, data),
 		};
 		// let (_, rx) = tokio::sync::watch::channel(false);
 		let future = net::relay(
