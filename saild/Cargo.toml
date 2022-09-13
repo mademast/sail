@@ -2,8 +2,8 @@
 name = "saild"
 version = "0.1.0"
 license = "ISC"
-authors = ["Genny Alfirevic <gen@nyble.dev>", "Devon Sawatsky <novedevo@gmail.com>"]
-edition = "2018"
+authors = ["Genny Z <gen@nyble.dev>", "Devon Sawatsky <novedevo@gmail.com>"]
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
