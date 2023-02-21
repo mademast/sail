@@ -1,9 +1,4 @@
-use std::{
-	fs::{File, OpenOptions},
-	io::Write,
-	path::PathBuf,
-	time::SystemTime,
-};
+use std::{fs::OpenOptions, io::Write, path::PathBuf, time::SystemTime};
 
 use gethostname::gethostname;
 use rand::Rng;
@@ -57,7 +52,7 @@ impl Maildir {
 				.create_new(true)
 				.open(&tmp_path)
 				.expect("Failed to open unique file for writing!");
-			tmp.write_all(message.to_string().as_bytes()).unwrap();
+			tmp.write_all(message.to_string().as_bytes())?
 		}
 		std::fs::rename(tmp_path, new_path)
 	}

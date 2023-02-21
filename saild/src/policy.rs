@@ -1,6 +1,6 @@
 use crate::{config::MaildirTemplate, fs::Maildir};
 
-use std::{collections::HashMap, path::PathBuf};
+use std::collections::HashMap;
 
 use sail::{
 	policy::Policy,

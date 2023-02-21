@@ -6,7 +6,7 @@ use std::{
 
 use confindent::Confindent;
 use getopts::Options;
-use sail::smtp::{args::ForwardPath, Envelope};
+use sail::smtp::args::ForwardPath;
 use thiserror::Error;
 
 pub struct Config {
@@ -314,7 +314,6 @@ pub enum ParseModifiersError {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use sail::smtp::args::*;
 
 	#[test]
 	fn template_parse() {

@@ -1,4 +1,4 @@
-use std::{fmt::Display, time::SystemTime};
+use std::fmt::Display;
 
 use crate::smtp::Response;
 

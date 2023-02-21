@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{cmp::Ordering, fmt::write, num::ParseIntError};
+use std::{cmp::Ordering, num::ParseIntError};
 
 use thiserror::Error;
 
