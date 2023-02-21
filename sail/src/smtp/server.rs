@@ -15,7 +15,7 @@ pub struct Server {
 impl Server {
 	pub fn initiate(policy: Box<dyn Policy>) -> (Self, Response) {
 		let primary_host = policy.primary_host();
-		
+
 		(
 			Self {
 				policy,
