@@ -18,7 +18,7 @@ async fn serve(
 ) -> io::Result<()> {
 	let (mut transaction, inital_response) = Server::initiate(Box::new(config.as_ref().clone()));
 	stream
-		.write_all(inital_response.as_string().as_bytes())
+		.write_all(inital_response.to_string().as_bytes())
 		.await?;
 
 	let mut buf = vec![0; 1024];
@@ -43,7 +43,7 @@ async fn serve(
 		let response = transaction.push(String::from_utf8_lossy(&buf[..read]).as_ref());
 
 		if let Some(response) = response {
-			stream.write_all(response.as_string().as_bytes()).await?;
+			stream.write_all(response.to_string().as_bytes()).await?;
 		}
 	}
 

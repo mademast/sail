@@ -21,3 +21,7 @@ pub trait Policy: Send + Sync {
 	/// If the message is rejected, the Response should have a code indicating a negative state.
 	fn message_received(&mut self, message: Envelope) -> Response;
 }
+
+pub trait IntoMessageResponse {
+	fn into_message_response(self) -> Response;
+}

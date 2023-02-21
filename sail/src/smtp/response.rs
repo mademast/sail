@@ -1,7 +1,9 @@
-use std::{cmp::Ordering, num::ParseIntError};
+use core::fmt;
+use std::{cmp::Ordering, fmt::write, num::ParseIntError};
 
 use thiserror::Error;
 
+/// A Response from an SMTP transaction.
 pub struct Response {
 	pub code: ResponseCode,
 	messages: Vec<String>,
@@ -34,20 +36,42 @@ impl Response {
 		self.code
 	}
 
-	pub fn as_string(&self) -> String {
-		let mut working = self.messages.clone();
-		let mut ret = format!("{} ", self.code.as_code());
+	/// Overriding that of [std::fmt::Display]. Includes a trailing `\r\n`
+	pub fn to_string(&self) -> String {
+		format!("{self}\r\n")
+	}
+}
 
-		if let Some(message) = working.pop() {
-			ret.push_str(&message);
+impl fmt::Display for Response {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self.messages.len() {
+			0 => write!(f, "{}", self.code)?,
+			1 => write!(
+				f,
+				"{} {}",
+				self.code,
+				self.messages.first().map(|s| s.as_str()).unwrap_or("")
+			)?,
+			_ => {
+				let mut messages = self.messages.iter().peekable();
+
+				loop {
+					match messages.next() {
+						None => write!(f, "{}", self.code)?,
+						Some(message) => {
+							if let None = messages.peek() {
+								write!(f, "{} {message}", self.code)?;
+								break;
+							} else {
+								write!(f, "{}-{message}\r\n", self.code)?;
+							}
+						}
+					}
+				}
+			}
 		}
 
-		for message in working {
-			ret.insert_str(0, &format!("{}-{}\r\n", self.code.as_code(), message));
-		}
-
-		ret.push_str("\r\n");
-		ret
+		Ok(())
 	}
 }
 
@@ -269,6 +293,12 @@ impl std::str::FromStr for ResponseCode {
 	}
 }
 
+impl fmt::Display for ResponseCode {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{}", self.as_code())
+	}
+}
+
 #[cfg(test)]
 mod test {
 
@@ -302,21 +332,21 @@ mod test {
 		let mut resp = Response::with_message(ResponseCode::Okay, "line1");
 		resp.push("line2");
 
-		assert_eq!(resp.as_string(), String::from("250-line1\r\n250 line2\r\n"));
+		assert_eq!(resp.to_string(), String::from("250-line1\r\n250 line2\r\n"));
 	}
 
 	#[test]
 	fn response_as_string_singleline() {
 		let resp = Response::with_message(ResponseCode::Okay, "line1");
 
-		assert_eq!(resp.as_string(), String::from("250 line1\r\n"));
+		assert_eq!(resp.to_string(), String::from("250 line1\r\n"));
 	}
 
 	#[test]
 	fn response_as_string_nolines() {
 		let resp = Response::new(ResponseCode::Okay);
 
-		assert_eq!(resp.as_string(), String::from("250 \r\n"));
+		assert_eq!(resp.to_string(), String::from("250\r\n"));
 	}
 
 	#[test]
