@@ -46,6 +46,7 @@ impl DnsLookup {
 				ResolveErrorKind::Io(_) => todo!(),
 				ResolveErrorKind::Proto(_) => todo!(),
 				ResolveErrorKind::Timeout => todo!(),
+				_ => todo!(),
 			},
 		}
 	}

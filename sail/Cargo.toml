@@ -8,12 +8,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-pest = "2.1" # Parsing
-pest_derive = "2.1"
+pest = "2.5" # Parsing
+pest_derive = "2.5"
 tokio = { version = "1", features = ["full"] }
-trust-dns-resolver = "0.20"
+trust-dns-resolver = "0.22"
 thiserror = "1.0"
 
 [dependencies.time]
-version = "0.3.13"
+version = "0.3.19"
 features = ["formatting", "local-offset"]
