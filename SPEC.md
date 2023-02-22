@@ -72,8 +72,18 @@ ehlo = "EHLO" SP ( Domain / address-literal ) CRLF
 ```
 
 ##### Expected return on success
-`250 Domain` if there are no service extensions, in violation of spec. If there are
-service extensions, `250-Domain` and then `250-KEYWORD` for each extension,
+Error if no service extensions.
+
+<details>
+<summary>RFC Text</summary>
+
+If the SMTP server, in violation of this specification,
+does not support any SMTP service extensions, it will generate an
+error response.
+
+</details>
+
+If there are service extensions, `250-Domain` and then `250-KEYWORD` for each extension,
 indicating the last one by removing the hyphen: `250 KEYWORD`. 
 
 <details>
