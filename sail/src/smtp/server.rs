@@ -16,18 +16,19 @@ impl Server {
 	pub fn initiate(policy: Box<dyn Policy>) -> (Self, Response) {
 		let primary_host = policy.primary_host();
 
-		(
-			Self {
-				policy,
-				state: Default::default(),
-				command: Default::default(),
-				message: Default::default(),
-			},
-			Response::with_message(
-				ResponseCode::ServiceReady,
-				format!("{} (Sail) ready", primary_host),
-			),
-		)
+		let response = Response::with_message(
+			ResponseCode::ServiceReady,
+			format!("{} (Sail) ready", primary_host),
+		);
+
+		let this = Self {
+			policy,
+			state: State::Initiated,
+			command: Default::default(),
+			message: Default::default(),
+		};
+
+		(this, response)
 	}
 
 	pub fn push(&mut self, line: &str) -> Option<Response> {
