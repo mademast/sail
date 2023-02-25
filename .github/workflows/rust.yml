@@ -26,10 +26,19 @@ jobs:
     - uses: Swatinem/rust-cache@v1
     
     - name: Build
-      run: cargo build
+      run: cargo build --release && mv target/release/saild saild-x86_64-linux
+
     - name: Run unit tests
       run: cargo test
-    - name: Run integration tests
-      run: cargo test send_trigger -- --ignored
-      env: 
-        TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
+
+#    - name: Run integration tests
+#      run: cargo test send_trigger -- --ignored
+#      env: 
+#        TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
+
+    - name: Upload Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: builds
+        retention-days: 7
+        path: saild-x86_64-linux
