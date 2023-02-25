@@ -18,20 +18,11 @@ async fn main() {
 
 	let listener = TcpListener::bind(binconf.socket_address()).await.unwrap();
 
-	// Quick, bad config based on port for testing
-	let config = match binconf.port {
-		25 => ServerPolicy {
-			hostnames: vec!["localhost".parse().unwrap()],
-			relays: vec!["nove.dev".parse().unwrap(), "genbyte.dev".parse().unwrap()],
-			users: vec!["genny".parse().unwrap(), "devon".parse().unwrap()],
-			maildir: binconf.maildir,
-		},
-		_ => ServerPolicy {
-			hostnames: vec!["localhost.localdomain".parse().unwrap()],
-			users: vec!["alice".parse().unwrap(), "bob".parse().unwrap()],
-			relays: vec!["localhost".parse().unwrap()],
-			maildir: binconf.maildir,
-		},
+	let policy = ServerPolicy {
+		hostnames: binconf.hostnames,
+		relays: vec![],
+		users: vec![],
+		maildir: binconf.maildir,
 	};
 
 	let (tx, rx) = tokio::sync::watch::channel(false);
@@ -39,7 +30,8 @@ async fn main() {
 	// make the arc before we move sail into receive_messages. Ideally we'd do
 	// something else so we can update the config later, but we are currently not
 	// architected for that
-	let dynconf = Arc::new(config.clone());
+	let dynconf = Arc::new(policy.clone());
+
 	let listen_task = tokio::spawn(crate::net::listen(listener, dynconf, rx));
 	let signal_listener = tokio::spawn(async {
 		use tokio::signal::unix::{signal, SignalKind};
@@ -67,6 +59,7 @@ async fn main() {
 	});
 
 	//TODO: handle graceful shut Serverdowns
+	// was "shut Serverdowns" a find-replace error because it's hilarious
 	#[allow(unused_must_use)]
 	{
 		signal_listener.await;

@@ -53,7 +53,7 @@ impl Policy for ServerPolicy {
 
 	fn path_is_valid(&self, path: &Path) -> bool {
 		self.path_is_foreign(path)
-			|| (self.path_is_local(path) && self.user_is_valid(&path.local_part))
+			|| (self.path_is_local(path)/* && self.user_is_valid(&path.local_part) */)
 	}
 
 	fn message_received(&mut self, message: Envelope) -> Response {
@@ -89,6 +89,7 @@ impl Policy for ServerPolicy {
 		// # Saving locally
 		// Try and save it to the file system. If we fail, tell the server that it's rejected
 		// as we have nowhere to save it! If it succeeds, tell the server as such (return 250).
+		//TODO: How do we handle partial failures?
 		//TODO: Save the local bits to disk
 		for local in locals {
 			let md = Maildir::new(self.maildir.as_path(&local));
@@ -104,9 +105,7 @@ impl Policy for ServerPolicy {
 		for (domain, forwards) in foreign_map.into_iter() {
 			let envelope = ForeignEnvelope::from_parts(reverse.clone(), forwards, content.clone());
 
-			tokio::spawn(sail::net::relay(
-				domain, envelope, /*, self.rx.clone()*/
-			));
+			tokio::spawn(sail::net::relay(domain, envelope));
 		}
 
 		Response::new(ResponseCode::Okay)

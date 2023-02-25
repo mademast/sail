@@ -6,13 +6,14 @@ use std::{
 
 use confindent::Confindent;
 use getopts::Options;
-use sail::smtp::args::ForwardPath;
+use sail::smtp::args::{Domain, ForwardPath};
 use thiserror::Error;
 
 pub struct Config {
 	pub address: IpAddr,
 	pub port: u16,
 	pub maildir: MaildirTemplate,
+	pub hostnames: Vec<Domain>,
 }
 
 #[allow(clippy::or_fun_call)]
@@ -123,10 +124,35 @@ impl Config {
 			}
 		};
 
+		let hostnames = match config.child_owned("Hostnames") {
+			None => {
+				eprintln!("'Hostnames' not found in config. Who are we accepting mail for?");
+				return None;
+			}
+			Some(joined) => {
+				let splits = joined.split(',');
+				let mut names = vec![];
+				for split in splits {
+					let domain: Domain = match split.parse() {
+						Err(_e) => {
+							eprintln!("Failed to parse {split} as a domain");
+							return None;
+						}
+						Ok(d) => d,
+					};
+
+					names.push(domain);
+				}
+
+				names
+			}
+		};
+
 		Some(Self {
 			address,
 			port,
 			maildir,
+			hostnames,
 		})
 	}
 }
