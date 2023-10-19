@@ -272,7 +272,7 @@ impl TemplateToken {
 	pub fn parse_variable<S: AsRef<str>>(string: S) -> Result<TemplateToken, ParseTemplateError> {
 		let string = string.as_ref();
 
-		match string.split_once(":") {
+		match string.split_once(':') {
 			None => {
 				// No modifiers were present
 				Ok(TemplateToken::Variable {

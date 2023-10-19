@@ -38,7 +38,7 @@ pub enum ReversePath {
 
 impl Path {
 	fn parse_naked_path(naked: &str) -> Result<Self, ParsePathError> {
-		if let Some((local_part, domain)) = naked.rsplit_once("@") {
+		if let Some((local_part, domain)) = naked.rsplit_once('@') {
 			// Check if it's an address literal first, and if it isn't, check if it's a domain
 			Ok(Self {
 				local_part: local_part.parse()?,

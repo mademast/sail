@@ -90,7 +90,7 @@ async fn send_to_ip(
 		let command = client.push(String::from_utf8_lossy(&buf[..read]).as_ref());
 
 		if let Some(command) = command {
-			println!("{}", command.to_string());
+			println!("{}", command);
 			timeout(
 				Duration::from_millis(500),
 				stream.write_all(command.to_string().as_bytes()),
