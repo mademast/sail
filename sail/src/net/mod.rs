@@ -16,10 +16,17 @@ pub mod dns;
 pub async fn relay(
 	domain: Domain,
 	message: ForeignEnvelope,
-	// rx: watch::Receiver<bool>,
+	#[cfg(fast_shutdown)] rx: watch::Receiver<bool>,
 ) -> Option<Envelope> {
 	let _sender = message.reverse_path.clone();
-	match run(domain, message /*, rx*/).await {
+	match run(
+		domain,
+		message,
+		#[cfg(fast_shutdown)]
+		rx,
+	)
+	.await
+	{
 		Ok(_) => None,
 		Err(_err) => None,
 	}
@@ -46,13 +53,20 @@ async fn run(
 		Domain::Literal(ip) => ip,
 	};
 
-	send_to_ip(ip, message /*, rx*/).await
+	send_to_ip(
+		ip,
+		message,
+		#[cfg(fast_shutdown)]
+		rx,
+	)
+	.await
 }
 
+///Sends the provided message to the provided IP address
 async fn send_to_ip(
 	addr: IpAddr,
 	message: ForeignEnvelope,
-	// mut rx: watch::Receiver<bool>,
+	#[cfg(fast_shutdown)] mut rx: watch::Receiver<bool>,
 ) -> Result<(), RelayError> {
 	println!("{}:{}", addr, 25);
 	//todo: send failed connection message if port 25 is blocked, or something
@@ -62,28 +76,30 @@ async fn send_to_ip(
 	)
 	.await??;
 
-	let mut client = Client::initiate(message.clone());
+	let mut client = Client::initiate(message);
 
 	let mut buf = vec![0; 1024];
 
 	while !client.should_exit() {
+		#[cfg(not(fast_shutdown))]
 		let read = stream.read(&mut buf).await?;
-		/*tokio::select! {
+		#[cfg(fast_shutdown)]
+		let read = tokio::select! {
 			_ = rx.changed() => {
 				timeout(
 					Duration::from_millis(500),
-					stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n") //this is a client... we should be sending QUIT, or, even better, just continuing to send it or something lmao
+					stream.write_all(b"421 Server has exited. No messages have been sent. Your progress have not been saved.\r\n")
+					//todo this is a client... we should be sending QUIT, or, even better, just continuing to send it or something lmao
 				)
 				.await??;
 				return Ok(());
 			},
 			Ok(read) = stream.read(&mut buf) => read,
-		};*/
+		};
 
-		// A zero sized read, this connection has died or been terminated by the server
+		// A zero sized read, the server has no more bytes to send (*not* an error)
 		if read == 0 {
-			eprintln!("Connection unexpectedly closed by server");
-			return Err(RelayError::ConnectionClosed);
+			return Ok(()); //is this right?
 		}
 
 		println!("{}", String::from_utf8_lossy(&buf[..read]));

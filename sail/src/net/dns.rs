@@ -21,6 +21,7 @@ impl DnsLookup {
 		let resolver =
 			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
 
+		use ResolveErrorKind::*;
 		match resolver.mx_lookup(fqdn).await {
 			Ok(mxlookup) => {
 				let mut mx_rec: Vec<(u16, String)> = mxlookup
@@ -37,15 +38,15 @@ impl DnsLookup {
 			}
 
 			Err(err) => match err.kind() {
-				ResolveErrorKind::NoRecordsFound { .. } => Ok(Self {
+				NoRecordsFound { .. } => Ok(Self {
 					mx_records: vec![],
 					ip_addresses: Self::get_addresses(fqdn).await?,
 				}),
-				ResolveErrorKind::Message(_) => todo!(),
-				ResolveErrorKind::Msg(_) => todo!(),
-				ResolveErrorKind::Io(_) => todo!(),
-				ResolveErrorKind::Proto(_) => todo!(),
-				ResolveErrorKind::Timeout => todo!(),
+				Message(_) => todo!(),
+				Msg(_) => todo!(),
+				Io(_) => todo!(),
+				Proto(_) => todo!(),
+				Timeout => todo!(),
 				_ => todo!(),
 			},
 		}
@@ -64,12 +65,13 @@ impl DnsLookup {
 		}
 	}
 
+	/// Makes a DNS request to get all IP addresses associated with the provided Fully Qualified Domain Name
 	async fn get_addresses(fqdn: &str) -> Result<Vec<IpAddr>, DnsLookupError> {
 		let resolver =
 			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
 
-		let ip = resolver.lookup_ip(fqdn).await?;
-		Ok(ip.iter().collect())
+		let ips = resolver.lookup_ip(fqdn).await?;
+		Ok(ips.into_iter().collect())
 	}
 }
 
