@@ -100,7 +100,7 @@ impl Server {
 				}
 				super::command::ParseCommandError::InvalidDomain(err) => Response::with_message(
 					ResponseCode::InvalidParameters,
-					&format!("Bad domain: {}", err),
+					format!("Bad domain: {}", err),
 				),
 			},
 		}
@@ -206,7 +206,7 @@ impl Server {
 
 		Response::with_message(
 			ResponseCode::ServiceClosing,
-			&format!("{} Goodbye", self.policy.primary_host()),
+			format!("{} Goodbye", self.policy.primary_host()),
 		)
 	}
 

@@ -173,7 +173,7 @@ impl Envelope {
 				//transparency to allow clients to send \r\n.\r\n without breaking SMTP
 				self.push(line.strip_prefix('.').unwrap())
 			} else {
-				self.push(line.to_string())
+				self.push(line)
 			}
 
 			self.push("\r\n");

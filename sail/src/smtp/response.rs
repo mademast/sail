@@ -37,6 +37,7 @@ impl Response {
 	}
 
 	/// Overriding that of [std::fmt::Display]. Includes a trailing `\r\n`
+	#[allow(clippy::inherent_to_string_shadow_display)]
 	pub fn to_string(&self) -> String {
 		format!("{self}\r\n")
 	}
@@ -59,7 +60,7 @@ impl fmt::Display for Response {
 					match messages.next() {
 						None => write!(f, "{}", self.code)?,
 						Some(message) => {
-							if let None = messages.peek() {
+							if messages.peek().is_none() {
 								write!(f, "{} {message}", self.code)?;
 								break;
 							} else {

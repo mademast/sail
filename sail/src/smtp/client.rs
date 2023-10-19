@@ -155,8 +155,9 @@ impl Client {
 	}
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Default)]
 enum State {
+	#[default]
 	Initiated,
 	Greeted,
 	SentReversePath,
@@ -165,12 +166,6 @@ enum State {
 	SentData,
 	SentQuit,
 	ShouldExit,
-}
-
-impl Default for State {
-	fn default() -> Self {
-		State::Initiated
-	}
 }
 
 pub enum Output {

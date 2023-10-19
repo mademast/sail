@@ -20,7 +20,7 @@ impl Validator {
 	}
 
 	pub fn validate_mailbox(mailbox: &str) -> bool {
-		let splits = mailbox.rsplit_once("@");
+		let splits = mailbox.rsplit_once('@');
 
 		if let Some((localpart, domain)) = splits {
 			// Check if it's an address literal first, and if it isn't, check if it's a domain

@@ -149,8 +149,9 @@ mod test {
 			for local in &locals {
 				assert!(
 					Path::from_str(&format!("<{}@{}>", local, domain)).is_ok(),
-					"failed on {}",
-					format!("<{}@{}>", local, domain)
+					"failed on <{}@{}>",
+					local,
+					domain
 				);
 			}
 		}
@@ -167,8 +168,9 @@ mod test {
 		let test = |local: &String, domain: &String| {
 			assert!(
 				Path::from_str(&format!("<{}@{}>", local, domain)).is_err(),
-				"passed on {}",
-				format!("<{}@{}>", local, domain)
+				"passed on <{}@{}>",
+				local,
+				domain
 			);
 		};
 

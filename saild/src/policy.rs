@@ -70,10 +70,10 @@ impl Policy for ServerPolicy {
 				} else if let ForwardPath::Regular(path) = forward {
 					// get the vector for a specific domain, but if there isn't one, make it.
 					match foreign_map.get_mut(&path.domain) {
-						Some(vec) => vec.push(ForeignPath { 0: path.clone() }),
+						Some(vec) => vec.push(ForeignPath(path.clone())),
 						None => {
 							foreign_map
-								.insert(path.domain.clone(), vec![ForeignPath { 0: path.clone() }]);
+								.insert(path.domain.clone(), vec![ForeignPath(path.clone())]);
 						}
 					}
 
