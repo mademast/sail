@@ -1,44 +1,48 @@
 name: Rust
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
 
 env:
-  CARGO_TERM_COLOR: always
+    CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+    build:
+        runs-on: ubuntu-latest
 
-    runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-    steps:
-    - uses: actions/checkout@v2
-    
-    - name: Install minimal stable
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: stable
-        
-    - uses: Swatinem/rust-cache@v1
-    
-    - name: Build
-      run: cargo build --release && mv target/release/saild saild-x86_64-linux
+            - name: Install Rust
+              uses: dtolnay/rust-toolchain@stable
 
-    - name: Run unit tests
-      run: cargo test
+            - name: Cache
+              uses: Swatinem/rust-cache@v2
 
-#    - name: Run integration tests
-#      run: cargo test send_trigger -- --ignored
-#      env: 
-#        TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
+            - name: Formatting
+              run: cargo fmt --check
 
-    - name: Upload Artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: builds
-        retention-days: 7
-        path: saild-x86_64-linux
+            - name: Lint
+              run: cargo clippy
+
+            - name: Build
+              run: cargo build --release && mv target/release/saild saild-x86_64-linux
+
+            - name: Run unit tests
+              run: cargo test
+
+            #    - name: Run integration tests
+            #      run: cargo test send_trigger -- --ignored
+            #      env:
+            #        TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
+
+            - name: Upload Artifacts
+              uses: actions/upload-artifact@v3
+              with:
+                  name: builds
+                  retention-days: 7
+                  path: saild-x86_64-linux
