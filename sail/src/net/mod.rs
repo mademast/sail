@@ -97,10 +97,9 @@ async fn send_to_ip(
 			Ok(read) = stream.read(&mut buf) => read,
 		};
 
-		// A zero sized read, this connection has died or been terminated by the server
+		// A zero sized read, the server has no more bytes to send (*not* an error)
 		if read == 0 {
-			eprintln!("Connection unexpectedly closed by server");
-			return Err(RelayError::ConnectionClosed);
+			return Ok(()); //is this right?
 		}
 
 		println!("{}", String::from_utf8_lossy(&buf[..read]));
