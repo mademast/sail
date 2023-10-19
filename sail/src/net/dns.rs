@@ -1,11 +1,11 @@
 use std::net::IpAddr;
 
-use thiserror::Error;
-use trust_dns_resolver::{
+use hickory_resolver::{
 	config::{ResolverConfig, ResolverOpts},
 	error::{ResolveError, ResolveErrorKind},
 	TokioAsyncResolver,
 };
+use thiserror::Error;
 
 pub struct DnsLookup {
 	/// A Vec containing possible mail server names. It is sorted in reverse
@@ -19,7 +19,7 @@ pub struct DnsLookup {
 impl DnsLookup {
 	pub async fn new(fqdn: &str) -> Result<Self, DnsLookupError> {
 		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())?;
+			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
 
 		match resolver.mx_lookup(fqdn).await {
 			Ok(mxlookup) => {
@@ -66,7 +66,7 @@ impl DnsLookup {
 
 	async fn get_addresses(fqdn: &str) -> Result<Vec<IpAddr>, DnsLookupError> {
 		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default())?;
+			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
 
 		let ip = resolver.lookup_ip(fqdn).await?;
 		Ok(ip.iter().collect())
