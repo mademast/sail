@@ -5,6 +5,7 @@ use std::{
 };
 use thiserror::Error;
 
+/// A Domain as defined by RFC. This can either be a fully-qualified domain name or an IP literal.
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub enum Domain {
 	FQDN(String),
@@ -30,20 +31,18 @@ impl Display for Domain {
 impl std::str::FromStr for Domain {
 	type Err = ParseDomainError;
 
+	/// Parses a correctly formed Domain into this struct
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		if let Some(literal) = s.strip_prefix('[') {
-			if let Some(stripped) = literal.strip_suffix(']') {
-				if let Some(ipv6_literal) = stripped.strip_prefix("IPv6:") {
-					// Only parse ipv6 if it claims to be one
-					Ok(Self::Literal(IpAddr::V6(ipv6_literal.parse()?)))
-				} else {
-					Ok(Self::Literal(IpAddr::V4(stripped.parse()?)))
-				}
+		if Validator::validate_domain(s) {
+			Ok(Self::FQDN(s.into()))
+		} else if let Some(stripped) = s.strip_prefix('[').and_then(|s| s.strip_suffix(']')) {
+			let ip = if let Some(ipv6_literal) = stripped.strip_prefix("IPv6:") {
+				// Only parse ipv6 if it claims to be one
+				IpAddr::V6(ipv6_literal.parse()?)
 			} else {
-				Err(ParseDomainError::Brackets)
-			}
-		} else if Validator::validate_domain(s) {
-			Ok(Self::FQDN(s.to_string()))
+				IpAddr::V4(stripped.parse()?)
+			};
+			Ok(Self::Literal(ip))
 		} else {
 			Err(ParseDomainError::InvalidDomain)
 		}
@@ -52,8 +51,6 @@ impl std::str::FromStr for Domain {
 
 #[derive(Error, Debug)]
 pub enum ParseDomainError {
-	#[error("unmatched brackets")]
-	Brackets,
 	#[error("failed to parse address")]
 	AddrParseError(#[from] AddrParseError),
 	#[error("invalid domain or address")]
