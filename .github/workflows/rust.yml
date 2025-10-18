@@ -41,7 +41,7 @@ jobs:
             #        TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
 
             - name: Upload Artifacts
-              uses: actions/upload-artifact@v3
+              uses: actions/upload-artifact@v4
               with:
                   name: builds
                   retention-days: 7
