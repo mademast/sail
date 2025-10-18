@@ -55,7 +55,7 @@ impl FromStr for Message {
 			}
 
 			//TODO: Not unwrap, that's for sure
-			if line.starts_with(|c| c == ' ' || c == '\t') {
+			if line.starts_with([' ', '\t']) {
 				// This is a folded line, unfold
 				if let Some((_, body)) = ret.headers.last_mut() {
 					body.push(' ');

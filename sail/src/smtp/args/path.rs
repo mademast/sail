@@ -123,7 +123,7 @@ impl FromStr for Path {
 impl FromStr for ForwardPath {
 	type Err = ParsePathError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		if s.to_ascii_lowercase() == "<postmaster>" {
+		if s.eq_ignore_ascii_case("<postmaster>") {
 			Ok(Self::Postmaster)
 		} else if let Some(stripped) = s.strip_suffix(":postmaster>") {
 			if let Some(stripped) = stripped.strip_prefix("<@") {
@@ -144,7 +144,7 @@ impl FromStr for ForwardPath {
 impl FromStr for ReversePath {
 	type Err = ParsePathError;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		if s.to_ascii_lowercase() == "<>" {
+		if s.eq_ignore_ascii_case("<>") {
 			Ok(Self::Null)
 		} else {
 			Ok(Self::Regular(s.parse()?))
