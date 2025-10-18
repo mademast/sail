@@ -62,7 +62,7 @@ impl Maildir {
 		let time = SystemTime::now()
 			.duration_since(SystemTime::UNIX_EPOCH)
 			.expect("SystemTime unwrap failed! Is your system clock before the unix epoch?");
-		let middle: u32 = rand::thread_rng().gen();
+		let middle: u32 = rand::rng().random();
 		let hostname = gethostname().to_string_lossy().replace('/', "-");
 
 		format!("{}.{:08x}.{}", time.as_secs(), middle, hostname)
