@@ -9,9 +9,9 @@ edition = "2021"
 
 [dependencies]
 sail = { path = "../sail" }
-gethostname = "0.4.3"
-rand = "0.8.5"
+gethostname = "1.1.0"
+rand = "0.9.2"
 tokio = { version = "1.33", features = ["full"] }
 getopts = "0.2.21"
 confindent = "2.2"
-thiserror = "1.0.49"
+thiserror = "2.0.17"
