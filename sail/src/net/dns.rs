@@ -1,10 +1,6 @@
 use std::net::IpAddr;
 
-use hickory_resolver::{
-	config::{ResolverConfig, ResolverOpts},
-	error::{ResolveError, ResolveErrorKind},
-	TokioAsyncResolver,
-};
+use hickory_resolver::{ResolveError, Resolver};
 use thiserror::Error;
 
 pub struct DnsLookup {
@@ -18,8 +14,7 @@ pub struct DnsLookup {
 
 impl DnsLookup {
 	pub async fn new(fqdn: &str) -> Result<Self, DnsLookupError> {
-		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
+		let resolver = Resolver::builder_tokio().unwrap().build();
 
 		match resolver.mx_lookup(fqdn).await {
 			Ok(mxlookup) => {
@@ -36,18 +31,16 @@ impl DnsLookup {
 				})
 			}
 
-			Err(err) => match err.kind() {
-				ResolveErrorKind::NoRecordsFound { .. } => Ok(Self {
-					mx_records: vec![],
-					ip_addresses: Self::get_addresses(fqdn).await?,
-				}),
-				ResolveErrorKind::Message(_) => todo!(),
-				ResolveErrorKind::Msg(_) => todo!(),
-				ResolveErrorKind::Io(_) => todo!(),
-				ResolveErrorKind::Proto(_) => todo!(),
-				ResolveErrorKind::Timeout => todo!(),
-				_ => todo!(),
-			},
+			Err(err) => {
+				if err.is_no_records_found() {
+					Ok(Self {
+						mx_records: vec![],
+						ip_addresses: Self::get_addresses(fqdn).await?,
+					})
+				} else {
+					todo!()
+				}
+			}
 		}
 	}
 
@@ -65,8 +58,7 @@ impl DnsLookup {
 	}
 
 	async fn get_addresses(fqdn: &str) -> Result<Vec<IpAddr>, DnsLookupError> {
-		let resolver =
-			TokioAsyncResolver::tokio(ResolverConfig::default(), ResolverOpts::default());
+		let resolver = Resolver::builder_tokio().unwrap().build();
 
 		let ip = resolver.lookup_ip(fqdn).await?;
 		Ok(ip.iter().collect())
