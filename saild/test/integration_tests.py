@@ -3,6 +3,7 @@ from typing import Optional, TextIO
 
 testfiles = ["happy_path.txt"]
 process: subprocess.Popen = subprocess.Popen([shutil.which("cargo"), "run"], stdout=subprocess.PIPE, stderr=subprocess.PIPE) # type: ignore
+is_error: bool = False
 
 # returns a tuple of address and port
 def start_sail() -> Optional[tuple[str, int]]:
@@ -20,13 +21,12 @@ def start_sail() -> Optional[tuple[str, int]]:
     return socket_address[0], int(socket_address[1])
 
 
-def init_socket(address: str, port: int) -> Optional[TextIO]:
-    
+def init_socket(address: str, port: int) -> TextIO:
     sail_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sail_socket.connect((address, port))
     return sail_socket.makefile("rw")
 
-def test(sail_fd: TextIO, testfile: TextIO):
+def test(sail_fd: TextIO, testfile: TextIO) -> int:
     for line in testfile:
         print("test line: " + line.removesuffix("\n"))
         next_line = sanitize_newlines(line)
@@ -42,11 +42,12 @@ def test(sail_fd: TextIO, testfile: TextIO):
             sail_fd.write(next_line.replace("C: ", "").replace("\\r", "").replace("\\n", "") + "\r\n")
             sail_fd.flush()
     print("Completed test with no problems :)")
+    return 0
 
 def sanitize_newlines(input: str) -> str:
     return input.replace("\r", "\\r").replace("\n", "\\n")
 
-def run_tests():
+def run_tests() -> Optional[int]:
     sail = start_sail()
     if sail is None:
         return None
@@ -56,10 +57,14 @@ def run_tests():
         if socket is None:
             return None
         
-        test(socket, open("saild/test/" + testfile))
+        if test(socket, open("saild/test/" + testfile)) != 0:
+            return None
+    return 0
 
 try:
-    run_tests()
+    if run_tests() is None:
+        is_error = True
 finally:
     if process is not None:
         process.kill()
+sys.exit(-1 if is_error else 0)
