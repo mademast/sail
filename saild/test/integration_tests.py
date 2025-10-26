@@ -1,4 +1,4 @@
-import subprocess, shutil, socket, sys
+import subprocess, shutil, socket, sys, argparse
 from typing import Optional, TextIO
 
 testfiles = ["happy_path.txt"]
@@ -26,8 +26,11 @@ def init_socket(address: str, port: int) -> TextIO:
     sail_socket.connect((address, port))
     return sail_socket.makefile("rw")
 
-def test(sail_fd: TextIO, testfile: TextIO) -> int:
-    for line in testfile:
+def test(sail_fd: TextIO, testfile_name: str, generate: bool) -> int:
+    generated_lines: list[str] = []
+    with open(testfile_name) as testfile:
+        testlines = [line for line in testfile]
+    for line in testlines:
         print("test line: " + line.removesuffix("\n"))
         next_line = sanitize_newlines(line)
         if next_line.startswith("S:"):
@@ -36,18 +39,36 @@ def test(sail_fd: TextIO, testfile: TextIO) -> int:
             print("sail response: " + sail_response)
 
             if sail_response != expected_response:
-                print(f"Diff test failed: sail vs expected: \n{sail_response}\n{expected_response}")
-                return -1
+                if generate:
+                    generated_lines.append("S: " + unsanitize_newlines(sail_response).strip())
+                    while len(generated_lines[-1]) >= 7 and generated_lines[-1][6] == '-':
+                        generated_line = sail_fd.readline()
+                        generated_lines.append("S: " + generated_line.strip())
+                else:
+                    print(f"Diff test failed: sail vs expected: \n{sail_response}\n{expected_response}")
+                    return -1
+            else:
+                generated_lines.append("S: " + unsanitize_newlines(sail_response).strip())
         elif next_line.startswith("C:"):
-            sail_fd.write(next_line.replace("C: ", "").replace("\\r", "").replace("\\n", "") + "\r\n")
+            clean_line = next_line.replace("C: ", "").replace("\\r", "").replace("\\n", "")
+            sail_fd.write(clean_line + "\r\n")
             sail_fd.flush()
+            generated_lines.append("C: " + clean_line)
+    if generate:
+        generated_text = "\r\n".join(generated_lines) + "\r\n"
+        print(f"Writing following text to {testfile_name}:\n")
+        print(generated_text)
+        with open(testfile_name, "w") as testfile:
+            testfile.write(generated_text)
     print("Completed test with no problems :)")
     return 0
 
 def sanitize_newlines(input: str) -> str:
     return input.replace("\r", "\\r").replace("\n", "\\n")
+def unsanitize_newlines(input: str) -> str:
+    return input.replace("\\r", "\r").replace("\\n", "\n")
 
-def run_tests() -> Optional[int]:
+def run_tests(generate: bool) -> Optional[int]:
     sail = start_sail()
     if sail is None:
         return None
@@ -57,12 +78,17 @@ def run_tests() -> Optional[int]:
         if socket is None:
             return None
         
-        if test(socket, open("saild/test/" + testfile)) != 0:
+        if test(socket, "saild/test/" + testfile, generate) != 0:
             return None
     return 0
 
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-g', '--generate', action='store_true')
+args = parser.parse_args()
+
 try:
-    if run_tests() is None:
+    if run_tests(args.generate) is None:
         is_error = True
 finally:
     if process is not None:
