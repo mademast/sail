@@ -1,9 +1,21 @@
 import subprocess, shutil, socket, sys, argparse
+from dataclasses import dataclass
 from typing import Optional, TextIO
 
 testfiles = ["happy_path.txt"]
 process: subprocess.Popen = subprocess.Popen([shutil.which("cargo"), "run"], stdout=subprocess.PIPE, stderr=subprocess.PIPE) # type: ignore
 is_error: bool = False
+
+@dataclass
+class Command:
+    command: str
+    response: list[str]
+
+@dataclass
+class TestCase:
+    initial_response: str
+    commands: list[Command]
+
 
 # returns a tuple of address and port
 def start_sail() -> Optional[tuple[str, int]]:
@@ -26,10 +38,25 @@ def init_socket(address: str, port: int) -> TextIO:
     sail_socket.connect((address, port))
     return sail_socket.makefile("rw")
 
+def parse_testlines(testlines: list[str]) -> TestCase:
+    retval = TestCase(testlines[0], [])
+    
+    i = 1
+    while i < len(testlines):
+        command = Command(testlines[i], [])
+        i += 1
+        while i < len(testlines) and testlines[i][0] == "S":
+            command.response.append(testlines[i])
+            i += 1
+        retval.commands.append(command)
+
+    return retval
+
 def test(sail_fd: TextIO, testfile_name: str, generate: bool) -> int:
     generated_lines: list[str] = []
     with open(testfile_name) as testfile:
         testlines = [line for line in testfile]
+        testcase = parse_testlines(testlines)
     for line in testlines:
         print("test line: " + line.removesuffix("\n"))
         next_line = sanitize_newlines(line)
