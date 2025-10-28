@@ -1,21 +1,67 @@
+from __future__ import annotations
 import subprocess, shutil, socket, sys, argparse
+from dataclasses import dataclass
 from typing import Optional, TextIO
+from itertools import chain
 
 testfiles = ["happy_path.txt"]
 process: subprocess.Popen = subprocess.Popen([shutil.which("cargo"), "run"], stdout=subprocess.PIPE, stderr=subprocess.PIPE) # type: ignore
-is_error: bool = False
+is_error: bool = True
+
+@dataclass
+class Command:
+    command: list[str]
+    response: list[str]
+
+@dataclass
+class TestCase:
+    initial_response: str
+    commands: list[Command]
+    
+    def validate_initial_response(self, server_response: str):
+        if server_response != self.initial_response:
+            raise Exception(f"Initial response differs - expected {self.initial_response.strip()}, got {server_response.strip()}")
+    
+    @staticmethod
+    def parse_testlines(testlines: list[str]) -> TestCase:
+        retval = TestCase(testlines[0][3:], [])
+        
+        i = 1
+        while i < len(testlines):
+            command = Command([], [])
+            while i < len(testlines) and testlines[i].startswith("C: "):
+                command.command.append(testlines[i][3:].strip())
+                i += 1
+            while i < len(testlines) and testlines[i].startswith("S: "):
+                command.response.append(testlines[i][3:].strip())
+                i += 1
+            retval.commands.append(command)
+        return retval
+    
+    def unparse_testlines(self) -> str:
+        lines = chain(
+            ["S: " + self.initial_response], 
+            *map(
+                lambda command: chain(
+                    map(lambda command_line: "C: " + command_line, command.command), 
+                    map(lambda response_line: "S: " + response_line, command.response)
+                ), 
+                self.commands
+            )
+        )
+
+        return "\r\n".join(lines) + "\r\n"
+
 
 # returns a tuple of address and port
-def start_sail() -> Optional[tuple[str, int]]:
-    if process.stdout == None:
-        print("failed to start sail process")
-        return None
+def start_sail() -> tuple[str, int]:
+    if process.stdout is None:
+        raise Exception("failed to start sail process")
 
     first_bytes: bytes = process.stdout.readline()
     first_line: str = first_bytes.decode()
     if not first_line.startswith("saild started"):
-        print("error initializing: " + first_line)
-        return None
+        raise Exception("error initializing: " + first_line)
     
     socket_address = first_line.split(" ")[-1].split(":")
     return socket_address[0], int(socket_address[1])
@@ -26,61 +72,49 @@ def init_socket(address: str, port: int) -> TextIO:
     sail_socket.connect((address, port))
     return sail_socket.makefile("rw")
 
-def test(sail_fd: TextIO, testfile_name: str, generate: bool) -> int:
-    generated_lines: list[str] = []
-    with open(testfile_name) as testfile:
-        testlines = [line for line in testfile]
-    for line in testlines:
-        print("test line: " + line.removesuffix("\n"))
-        next_line = sanitize_newlines(line)
-        if next_line.startswith("S:"):
-            expected_response = next_line.replace("S: ", "")
-            sail_response = sanitize_newlines(sail_fd.readline())
-            print("sail response: " + sail_response)
 
-            if sail_response != expected_response:
-                if generate:
-                    generated_lines.append("S: " + unsanitize_newlines(sail_response).strip())
-                    while len(generated_lines[-1]) >= 7 and generated_lines[-1][6] == '-':
-                        generated_line = sail_fd.readline()
-                        generated_lines.append("S: " + generated_line.strip())
-                else:
-                    print(f"Diff test failed: sail vs expected: \n{sail_response}\n{expected_response}")
-                    return -1
-            else:
-                generated_lines.append("S: " + unsanitize_newlines(sail_response).strip())
-        elif next_line.startswith("C:"):
-            clean_line = next_line.replace("C: ", "").replace("\\r", "").replace("\\n", "")
-            sail_fd.write(clean_line + "\r\n")
-            sail_fd.flush()
-            generated_lines.append("C: " + clean_line)
+def test(sail_fd: TextIO, testfile_name: str, generate: bool):
+    with open(testfile_name) as testfile:
+        testcase = TestCase.parse_testlines([line for line in testfile])
+
     if generate:
-        generated_text = "\r\n".join(generated_lines) + "\r\n"
+        testcase.initial_response = sail_fd.readline().strip()
+    else:
+        testcase.validate_initial_response(sail_fd.readline())
+
+    for command in testcase.commands:
+        for command_line in command.command:
+            sail_fd.write(command_line + "\r\n")
+        sail_fd.flush()
+
+        sail_responses: list[str] = []
+        while True:
+            sail_response = sail_fd.readline()
+            sail_responses.append(sail_response.strip())
+            if not (len(sail_responses[-1]) >= 4 and sail_responses[-1][3] == '-'):
+                break
+        
+        responses_equal = all(map(lambda responses: responses[0] == responses[1], zip(sail_responses, command.response)))
+        if generate:
+            command.response = sail_responses
+        elif not responses_equal:
+            raise Exception(f"sail response ({sail_responses}) differs from expected response ({command.response})")
+        
+    if generate:
+        generated_text = testcase.unparse_testlines()
         print(f"Writing following text to {testfile_name}:\n")
         print(generated_text)
         with open(testfile_name, "w") as testfile:
             testfile.write(generated_text)
     print("Completed test with no problems :)")
-    return 0
 
-def sanitize_newlines(input: str) -> str:
-    return input.replace("\r", "\\r").replace("\n", "\\n")
-def unsanitize_newlines(input: str) -> str:
-    return input.replace("\\r", "\r").replace("\\n", "\n")
-
-def run_tests(generate: bool) -> Optional[int]:
+def run_tests(generate: bool):
     sail = start_sail()
-    if sail is None:
-        return None
     
     for testfile in testfiles:
         socket = init_socket(sail[0], sail[1])
-        if socket is None:
-            return None
         
-        if test(socket, "saild/test/" + testfile, generate) != 0:
-            return None
-    return 0
+        test(socket, "saild/test/" + testfile, generate)
 
 
 parser = argparse.ArgumentParser()
@@ -88,8 +122,8 @@ parser.add_argument('-g', '--generate', action='store_true')
 args = parser.parse_args()
 
 try:
-    if run_tests(args.generate) is None:
-        is_error = True
+    run_tests(args.generate)
+    is_error = False
 finally:
     if process is not None:
         process.kill()
