@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TextIO
 from itertools import chain
 
-testfiles = ["happy_path.txt"]
+testfiles = ["happy_path.txt", "abortive.txt"]
 process: subprocess.Popen = subprocess.Popen([shutil.which("cargo"), "run"], stdout=subprocess.PIPE, stderr=subprocess.PIPE) # type: ignore
 is_error: bool = True
 
@@ -115,7 +115,7 @@ def test(sail_fd: TextIO, testfile_name: str, generate: bool, codes_only: bool):
         print(generated_text)
         with open(testfile_name, "w") as testfile:
             testfile.write(generated_text)
-    print("Completed test with no problems :)")
+    print(f"Completed test {testfile_name.split("/")[-1]} with no problems :)")
 
 def run_tests(generate: bool, codes_only: bool):
     sail = start_sail()
