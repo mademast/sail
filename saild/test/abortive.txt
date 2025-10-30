@@ -1,0 +1,14 @@
+S: 220 localhost (Sail) ready
+C: EHLO test.domain
+S: 250-localhost (sail) greets test.domain
+S: 250 Help
+C: MAIL FROM:<manul@test.domain>
+S: 250 Okay
+C: RCPT TO:<snep@localhost>
+S: 250 Okay
+C: RCPT TO:<coati@localhost>
+S: 250 Okay
+C: RSET
+S: 250 Okay
+C: QUIT
+S: 221 localhost Goodbye
