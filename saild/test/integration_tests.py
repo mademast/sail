@@ -1,7 +1,7 @@
 from __future__ import annotations
 import subprocess, shutil, socket, sys, argparse
 from dataclasses import dataclass
-from typing import Optional, TextIO
+from typing import TextIO
 from itertools import chain
 
 testfiles = ["happy_path.txt"]
@@ -78,7 +78,7 @@ def init_socket(address: str, port: int) -> TextIO:
     return sail_socket.makefile("rw")
 
 
-def test(sail_fd: TextIO, testfile_name: str, generate: bool):
+def test(sail_fd: TextIO, testfile_name: str, generate: bool, codes_only: bool):
     with open(testfile_name) as testfile:
         testcase = TestCase.parse_testlines([line for line in testfile])
 
@@ -98,8 +98,12 @@ def test(sail_fd: TextIO, testfile_name: str, generate: bool):
             sail_responses.append(sail_response.strip())
             if not (len(sail_responses[-1]) >= 4 and sail_responses[-1][3] == '-'):
                 break
+
+        full_equals = lambda responses: responses[0] == responses[1]
+        code_equals = lambda responses: responses[0][:3] == responses[1][:3]
+        comparer = code_equals if codes_only else full_equals
         
-        responses_equal = all(map(lambda responses: responses[0] == responses[1], zip(sail_responses, command.response)))
+        responses_equal = all(map(comparer, zip(sail_responses, command.response)))
         if generate:
             command.response = sail_responses
         elif not responses_equal:
@@ -113,21 +117,23 @@ def test(sail_fd: TextIO, testfile_name: str, generate: bool):
             testfile.write(generated_text)
     print("Completed test with no problems :)")
 
-def run_tests(generate: bool):
+def run_tests(generate: bool, codes_only: bool):
     sail = start_sail()
     
     for testfile in testfiles:
         socket = init_socket(sail[0], sail[1])
         
-        test(socket, "saild/test/" + testfile, generate)
+        test(socket, "saild/test/" + testfile, generate, codes_only)
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-g', '--generate', action='store_true')
+group = parser.add_mutually_exclusive_group()
+group.add_argument('-g', '--generate', action='store_true')
+group.add_argument('-c', '--codes-only', action='store_true')
 args = parser.parse_args()
 
 try:
-    run_tests(args.generate)
+    run_tests(args.generate, args.codes_only)
     is_error = False
 finally:
     if process is not None:
