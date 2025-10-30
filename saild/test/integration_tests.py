@@ -28,6 +28,11 @@ class TestCase:
         
         i = 1
         while i < len(testlines):
+            if not testlines[i].startswith("C: ") and not testlines[i].startswith("S: "):
+                # invalid line
+                i += 1
+                continue
+
             command = Command([], [])
             while i < len(testlines) and testlines[i].startswith("C: "):
                 command.command.append(testlines[i][3:].strip())
