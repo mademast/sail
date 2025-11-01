@@ -2,9 +2,7 @@ name: Rust
 
 on:
     push:
-        branches: [main]
     pull_request:
-        branches: [main]
 
 env:
     CARGO_TERM_COLOR: always
@@ -23,6 +21,11 @@ jobs:
             - name: Cache
               uses: Swatinem/rust-cache@v2
 
+            - name: Install Python
+              uses: actions/setup-python@v6
+              with:
+                python-version: '3.12' 
+
             - name: Formatting
               run: cargo fmt --check
 
@@ -35,10 +38,8 @@ jobs:
             - name: Run unit tests
               run: cargo test
 
-            #    - name: Run integration tests
-            #      run: cargo test send_trigger -- --ignored
-            #      env:
-            #        TRIGGER_EMAIL: ${{ secrets.TRIGGER_EMAIL }}
+            - name: Run integration tests
+              run: python3 saild/test/integration_tests.py
 
             - name: Upload Artifacts
               uses: actions/upload-artifact@v4

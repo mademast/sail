@@ -17,6 +17,7 @@ async fn main() {
 	};
 
 	let listener = TcpListener::bind(binconf.socket_address()).await.unwrap();
+	println!("saild started, listening on {}", binconf.socket_address());
 
 	let policy = ServerPolicy {
 		hostnames: binconf.hostnames,
