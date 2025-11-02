@@ -3,9 +3,10 @@ import subprocess, shutil, socket, sys, argparse
 from dataclasses import dataclass
 from typing import TextIO
 from itertools import chain
+from os import listdir
 
-testfiles = ["happy_path.txt", "abortive.txt"]
 process: subprocess.Popen[bytes] | None = None
+testfiles = [("happy_path.txt", ["snep", "coati"]), ("abortive.txt", [])]
 is_error: bool = True
 
 @dataclass
@@ -91,8 +92,12 @@ def init_socket(address: str, port: int) -> TextIO:
     return sail_socket.makefile("rw")
 
 
-def test(sail_fd: TextIO, testfile_name: str, generate: bool, codes_only: bool):
-    with open(testfile_name) as testfile:
+def test(sail_fd: TextIO, testfile_name: tuple[str, list[str]], generate: bool, codes_only: bool):
+    try:
+        shutil.rmtree("maildir") # clean slate
+    except FileNotFoundError:
+        pass # ignore if it doesn't exist
+    with open(testfile_name[0]) as testfile:
         testcase = TestCase.parse_testlines([line for line in testfile])
 
     if generate:
@@ -126,9 +131,18 @@ def test(sail_fd: TextIO, testfile_name: str, generate: bool, codes_only: bool):
         generated_text = testcase.unparse_testlines()
         print(f"Writing following text to {testfile_name}:\n")
         print(generated_text)
-        with open(testfile_name, "w") as testfile:
+        with open(testfile_name[0], "w") as testfile:
             testfile.write(generated_text)
-    print(f"Completed test {testfile_name.split("/")[-1]} with no problems :)")
+    elif len(testfile_name[1]) != 0:
+        if len(listdir("maildir")) != len(testfile_name[1]):
+            raise Exception("Incorrect number of directories created")
+        else:
+            for recipient in testfile_name[1]:
+                messages = listdir(f"maildir/{recipient}/LOCALHOST/new")
+                if len(messages) != 1:
+                    raise Exception(f"Incorrect number of messages saved: {messages}")
+
+    print(f"Completed test {testfile_name[0].split("/")[-1]} with no problems :)")
 
 def run_tests(generate: bool, codes_only: bool):
     sail = start_sail()
@@ -136,7 +150,7 @@ def run_tests(generate: bool, codes_only: bool):
     for testfile in testfiles:
         socket = init_socket(sail[0], sail[1])
         
-        test(socket, "saild/test/" + testfile, generate, codes_only)
+        test(socket, ("saild/test/" + testfile[0], testfile[1]), generate, codes_only)
 
 
 parser = argparse.ArgumentParser()
