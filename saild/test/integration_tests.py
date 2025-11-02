@@ -6,7 +6,7 @@ from itertools import chain
 from os import listdir
 
 process: subprocess.Popen[bytes] | None = None
-testfiles = [("happy_path.txt", ["snep", "coati"]), ("abortive.txt", [])]
+testfiles = [("happy_path.txt", ["snep", "coati"]), ("abortive.txt", []), ("relay.txt", [])]
 is_error: bool = True
 
 @dataclass
