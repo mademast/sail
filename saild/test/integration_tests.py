@@ -5,7 +5,7 @@ from typing import TextIO
 from itertools import chain
 
 testfiles = ["happy_path.txt", "abortive.txt"]
-process: subprocess.Popen = subprocess.Popen([shutil.which("cargo"), "run"], stdout=subprocess.PIPE, stderr=subprocess.PIPE) # type: ignore
+process: subprocess.Popen[bytes] | None = None
 is_error: bool = True
 
 @dataclass
@@ -57,13 +57,26 @@ class TestCase:
 
         return "\r\n".join(lines) + "\r\n"
 
+def is_sail_running() -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sail_socket:
+        try:
+            sail_socket.connect(("localhost", 8000))
+            return True
+        except ConnectionRefusedError:
+            print("Saild not found, starting...")
+            return False
 
 # returns a tuple of address and port
 def start_sail() -> tuple[str, int]:
+    if is_sail_running():
+        return ("localhost", 8000)
+
+    global process
+    process = subprocess.Popen(["cargo", "run"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if process.stdout is None:
         raise Exception("failed to start sail process")
 
-    first_bytes: bytes = process.stdout.readline()
+    first_bytes = process.stdout.readline()
     first_line: str = first_bytes.decode()
     if not first_line.startswith("saild started"):
         raise Exception("error initializing: " + first_line)
