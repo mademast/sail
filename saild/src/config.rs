@@ -14,6 +14,7 @@ pub struct Config {
 	pub port: u16,
 	pub maildir: MaildirTemplate,
 	pub hostnames: Vec<Domain>,
+	pub relays: Vec<Domain>,
 }
 
 #[allow(clippy::or_fun_call)]
@@ -129,22 +130,16 @@ impl Config {
 				eprintln!("'Hostnames' not found in config. Who are we accepting mail for?");
 				return None;
 			}
+			Some(joined) => Self::parse_domains(&joined)?,
+		};
+
+		let relays = match config.child_owned("Relays") {
+			None => vec![],
 			Some(joined) => {
-				let splits = joined.split(',');
-				let mut names = vec![];
-				for split in splits {
-					let domain: Domain = match split.parse() {
-						Err(_e) => {
-							eprintln!("Failed to parse {split} as a domain");
-							return None;
-						}
-						Ok(d) => d,
-					};
-
-					names.push(domain);
-				}
-
-				names
+				//possible future work: allow granular relays - which local-parts are acceptable to relay to?
+				//this complicates parsing a bit since roughly anything goes for a local-part
+				//i believe confindent has support for nested structures, though - could have this a multi-line structure?
+				Self::parse_domains(&joined)?
 			}
 		};
 
@@ -153,7 +148,26 @@ impl Config {
 			port,
 			maildir,
 			hostnames,
+			relays,
 		})
+	}
+
+	fn parse_domains(joined: &str) -> Option<Vec<Domain>> {
+		let splits = joined.split(',');
+		let mut names = vec![];
+		for split in splits {
+			let domain: Domain = match split.parse() {
+				Err(_e) => {
+					eprintln!("Failed to parse {split} as a domain");
+					return None;
+				}
+				Ok(d) => d,
+			};
+
+			names.push(domain);
+		}
+
+		Some(names)
 	}
 }
 
